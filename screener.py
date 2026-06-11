@@ -210,6 +210,7 @@ def compute_indicators(raw_data, mcap_data, screen_tickers):
 
     print('   [7/8] CMF...', end=' ', flush=True)
     mfm = ((close - low) - (high - close)) / (high - low).replace(0, np.nan)
+    mfm = mfm.fillna(0)  # flat (high==low) days contribute 0 money flow, not NaN
     mfv = mfm * volume
     cmf = mfv.rolling(CMF_PERIOD, min_periods=CMF_PERIOD).sum() / \
           volume.rolling(CMF_PERIOD, min_periods=CMF_PERIOD).sum().replace(0, np.nan)
@@ -274,22 +275,6 @@ def run_screen(ind):
     print(f'   [diag] screen_date={screen_date.date()}, valid_after_ffill={int(valid.sum())}/{len(valid)}, '
           f'close_nan={int(close_row.isna().sum())}, sma200_nan={int(sma_l_row.isna().sum())}, '
           f'sma21_nan={int(sma_s_row.isna().sum())}')
-
-    # Diagnostic: show top 20 by rank_score (regardless of pass/fail) with all filter values
-    diag_df = pd.DataFrame({
-        'ticker': close_row.index,
-        'rank_score': rank_row.values,
-        'rsi': rsi_row.values,
-        'ann_vol': vol_row.values,
-        'adv_cr': adv_row.values,
-        'mcap_cr': mcap_row.values,
-        'pct_from_high': (close_row.values/high52_row.values - 1)*100,
-        'cmf': cmf_row.values,
-        'close_gt_sma21': (close_row > sma_s_row).values,
-    })[valid.values].sort_values('rank_score', ascending=False).head(20)
-    print('\n   [diag] Top 20 by rank_score (valid only):')
-    print(diag_df.to_string(index=False))
-    print()
 
     m_mcap = mcap_row.ge(MIN_MCAP_INR / 1e7).fillna(False)   # ₹ Cr
     m_adv  = adv_row.ge(MIN_ADV_INR / 1e7)                   # ₹ Cr
