@@ -1,5 +1,0 @@
-{
-  "Total_Portfolio_Value": 1000000,
-  "Unallocated_Cash": 1000000,
-  "_comment": "These are fallback defaults used only if workflow_dispatch inputs are blank. Update Total_Portfolio_Value and Unallocated_Cash here if you prefer not to enter them every run, OR always pass them as workflow inputs (recommended)."
-}
