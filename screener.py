@@ -210,7 +210,13 @@ def compute_indicators(raw_data, mcap_data, screen_tickers):
 
     print('   [7/8] CMF...', end=' ', flush=True)
     mfm = ((close - low) - (high - close)) / (high - low).replace(0, np.nan)
-    mfm = mfm.fillna(0)  # flat (high==low) days contribute 0 money flow, not NaN
+    # Circuit/flat days (high==low): MFM is undefined by the standard formula.
+    # On these days there's no intra-day range, but direction is unambiguous —
+    # an upper-circuit is maximal buying pressure (+1), lower-circuit is
+    # maximal selling pressure (-1), unchanged is neutral (0). This keeps the
+    # value in the same [-1,1] scale as normal MFM so the 0.1 threshold stays meaningful.
+    circuit_mfm = np.sign(close - close.shift(1))
+    mfm = mfm.where(mfm.notna(), circuit_mfm)
     mfv = mfm * volume
     cmf = mfv.rolling(CMF_PERIOD, min_periods=CMF_PERIOD).sum() / \
           volume.rolling(CMF_PERIOD, min_periods=CMF_PERIOD).sum().replace(0, np.nan)
