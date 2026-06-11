@@ -168,6 +168,16 @@ def compute_indicators(raw_data, mcap_data, screen_tickers):
     low    = raw_data['Low'][available].copy().astype(float)
     print(f'   Shape: {close.shape}')
 
+    # Forward-fill up to 3 trading days: many NSE small/mid-caps lag 1-2 days
+    # behind mega-caps (RELIANCE/TCS/^NSEI) in yfinance's batch response, which
+    # would otherwise show as NaN on the anchor screen date despite having
+    # ample trading history. Volume is filled with 0 (no trading that day) so
+    # ADV/CMF aren't artificially inflated by repeated volume.
+    close = close.ffill(limit=3)
+    high  = high.ffill(limit=3)
+    low   = low.ffill(limit=3)
+    volume = volume.fillna(0)
+
     print('   [1/8] SMA21 / SMA200...', end=' ', flush=True)
     sma_short = close.rolling(SMA_SHORT, min_periods=SMA_SHORT).mean()
     sma_long  = close.rolling(SMA_LONG,  min_periods=SMA_LONG).mean()
@@ -261,6 +271,9 @@ def run_screen(ind):
     mcap_row   = ind['mcap'].iloc[idx]
 
     valid  = close_row.notna() & sma_l_row.notna() & sma_s_row.notna()
+    print(f'   [diag] screen_date={screen_date.date()}, valid_after_ffill={int(valid.sum())}/{len(valid)}, '
+          f'close_nan={int(close_row.isna().sum())}, sma200_nan={int(sma_l_row.isna().sum())}, '
+          f'sma21_nan={int(sma_s_row.isna().sum())}')
     m_mcap = mcap_row.ge(MIN_MCAP_INR / 1e7).fillna(False)   # ₹ Cr
     m_adv  = adv_row.ge(MIN_ADV_INR / 1e7)                   # ₹ Cr
     m_vol  = vol_row.le(MAX_VOLATILITY)
