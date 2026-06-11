@@ -64,7 +64,7 @@ def fetch_batch_with_retry(batch, start_str, end_str, max_retries=3):
     return None
 
 
-def fetch_ohlcv(tickers, lookback_days=400, batch_size=100):
+def fetch_ohlcv(tickers, lookback_days=550, batch_size=100):
     # +2 day fix: avoids yfinance's exclusive-end-date clipping the latest session
     end_date   = datetime.today().date() + timedelta(days=2)
     start_date = end_date - timedelta(days=lookback_days)
