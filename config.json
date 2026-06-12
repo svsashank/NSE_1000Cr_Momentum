@@ -1,0 +1,18 @@
+{
+  "universe_name": "nse_full",
+  "portfolio_size": 15,
+  "min_mcap_inr_cr": 1000,
+  "min_adv_inr_cr": 10,
+  "max_volatility": 0.75,
+  "rsi_threshold": 50,
+  "max_from_high": 0.25,
+  "sma_short": 21,
+  "sma_long": 200,
+  "rsi_period": 14,
+  "vol_lookback": 63,
+  "adv_period": 63,
+  "cmf_period": 20,
+  "cmf_threshold": 0.1,
+  "lookback_days": 550,
+  "_comment": "All thresholds in INR Cr (1 Cr = 1e7 INR). Edit and commit to change screener behavior - no code changes needed. shares_outstanding cache refreshed weekly by keepalive-style workflow; mcap = shares_outstanding * latest_close."
+}

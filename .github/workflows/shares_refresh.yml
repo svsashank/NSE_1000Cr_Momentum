@@ -1,0 +1,38 @@
+name: Refresh Shares Outstanding
+
+on:
+  schedule:
+    # Weekly, Sunday 02:00 UTC — shares outstanding rarely changes (buybacks,
+    # splits, FPOs), so weekly refresh is more than sufficient. This caches
+    # the data so the main screener can compute MCap instantly (shares × close)
+    # instead of a ~15min sequential per-ticker fetch loop.
+    - cron: '0 2 * * 0'
+  workflow_dispatch:  # allow manual trigger from GitHub UI
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install yfinance
+
+      - name: Fetch shares outstanding
+        run: python refresh_shares.py
+
+      - name: Commit updated cache
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add shares_outstanding.json
+          git diff --staged --quiet || git commit -m "Weekly shares outstanding refresh"
+          git push

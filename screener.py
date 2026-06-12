@@ -16,23 +16,29 @@ warnings.filterwarnings('ignore')
 SUPABASE_URL = os.environ['SUPABASE_URL']
 SUPABASE_KEY = os.environ['SUPABASE_KEY']
 
-# ── Strategy parameters (INR) ─────────────────────────────────────────────────
-UNIVERSE_NAME  = 'nse_full'
-PORTFOLIO_SIZE = 15
-MIN_MCAP_INR   = 1_000_00_00_000   # ₹1000 Cr
-MIN_ADV_INR    = 10_00_00_000      # ₹10 Cr/day
-MAX_VOLATILITY = 0.75
-RSI_THRESHOLD  = 50
-MAX_FROM_HIGH  = 0.25
-SMA_SHORT      = 21
-SMA_LONG       = 200
-RSI_PERIOD     = 14
-VOL_LOOKBACK   = 63
-ADV_PERIOD     = 63
-CMF_PERIOD     = 20
-CMF_THRESHOLD  = 0.1
+# ── Strategy parameters (loaded from config.json, INR) ────────────────────────
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config.json')
+with open(CONFIG_FILE) as f:
+    _cfg = json.load(f)
+
+UNIVERSE_NAME  = _cfg['universe_name']
+PORTFOLIO_SIZE = _cfg['portfolio_size']
+MIN_MCAP_CR    = _cfg['min_mcap_inr_cr']      # ₹ Cr
+MIN_ADV_CR     = _cfg['min_adv_inr_cr']       # ₹ Cr/day
+MAX_VOLATILITY = _cfg['max_volatility']
+RSI_THRESHOLD  = _cfg['rsi_threshold']
+MAX_FROM_HIGH  = _cfg['max_from_high']
+SMA_SHORT      = _cfg['sma_short']
+SMA_LONG       = _cfg['sma_long']
+RSI_PERIOD     = _cfg['rsi_period']
+VOL_LOOKBACK   = _cfg['vol_lookback']
+ADV_PERIOD     = _cfg['adv_period']
+CMF_PERIOD     = _cfg['cmf_period']
+CMF_THRESHOLD  = _cfg['cmf_threshold']
+LOOKBACK_DAYS  = _cfg['lookback_days']
 
 UNIVERSE_FILE  = os.path.join(os.path.dirname(__file__), 'nse_universe.json')
+SHARES_FILE    = os.path.join(os.path.dirname(__file__), 'shares_outstanding.json')
 
 
 # ── Step 1: Load universe ─────────────────────────────────────────────────────
@@ -64,7 +70,7 @@ def fetch_batch_with_retry(batch, start_str, end_str, max_retries=3):
     return None
 
 
-def fetch_ohlcv(tickers, lookback_days=550, batch_size=100):
+def fetch_ohlcv(tickers, lookback_days=LOOKBACK_DAYS, batch_size=100):
     # +2 day fix: avoids yfinance's exclusive-end-date clipping the latest session
     end_date   = datetime.today().date() + timedelta(days=2)
     start_date = end_date - timedelta(days=lookback_days)
@@ -108,57 +114,29 @@ def fetch_ohlcv(tickers, lookback_days=550, batch_size=100):
     return raw, available
 
 
-# ── Step 3: Fetch market cap ──────────────────────────────────────────────────
-def fetch_mcap(tickers):
+# ── Step 3: Load shares outstanding (cached weekly) ───────────────────────────
+def load_shares_outstanding():
     """
-    Fetch market cap via yfinance fast_info.
-    Falls back gracefully — missing mcap means stock fails the ₹1000 Cr filter,
-    which is conservative (won't include unknown small caps).
+    Loads pre-fetched shares-outstanding from shares_outstanding.json
+    (refreshed weekly by refresh_shares.py). Market cap is then computed as
+    shares × close for any date, using OHLCV data we already have — this
+    eliminates the ~2200-ticker sequential yf.Ticker() loop (was ~15 min/run).
     """
-    print(f'⏳ Fetching market cap for {len(tickers)} stocks...')
-    mcap_data = {}
+    if not os.path.exists(SHARES_FILE):
+        print('⚠ shares_outstanding.json not found — MCap filter disabled for this run')
+        return {}, None
 
-    # Test which method works (RELIANCE.NS as reference, ~₹1.5-2 lakh Cr → ~₹1.5-2e12)
-    getter = None
-    test   = yf.Ticker('RELIANCE.NS')
-    for name, fn in [
-        ('fast_info.market_cap', lambda t: t.fast_info.market_cap),
-        ('info.marketCap',       lambda t: t.info.get('marketCap')),
-        ('shares_x_price',       lambda t: t.fast_info.shares * t.fast_info.last_price),
-    ]:
-        try:
-            val = fn(test)
-            if val and val > 1e11:  # > ₹10,000 Cr sanity check for RELIANCE
-                print(f'   Method: {name} (RELIANCE.NS: ₹{val/1e7:.0f} Cr)')
-                getter = fn
-                break
-        except:
-            continue
+    with open(SHARES_FILE) as f:
+        data = json.load(f)
 
-    if getter is None:
-        print('⚠ All MCap methods failed — MCap filter disabled for this run')
-        return {}
-
-    for i, ticker in enumerate(tickers):
-        for attempt in range(3):
-            try:
-                val = getter(yf.Ticker(ticker))
-                if val and val > 0:
-                    mcap_data[ticker] = float(val)
-                break
-            except:
-                time.sleep(1)
-        if (i + 1) % 200 == 0:
-            print(f'   {i+1}/{len(tickers)} done — {len(mcap_data)} found')
-            time.sleep(1)
-
-    pct = len(mcap_data) / len(tickers) * 100 if tickers else 0
-    print(f'✅ MCap: {len(mcap_data)}/{len(tickers)} ({pct:.0f}% coverage)')
-    return mcap_data
+    shares = data.get('shares', {})
+    updated_at = data.get('updated_at', 'unknown')
+    print(f'✅ Shares outstanding: {len(shares)} tickers (cache updated {updated_at})')
+    return shares, updated_at
 
 
 # ── Step 4: Compute indicators ────────────────────────────────────────────────
-def compute_indicators(raw_data, mcap_data, screen_tickers):
+def compute_indicators(raw_data, shares_data, screen_tickers):
     available = [t for t in screen_tickers if t in raw_data['Close'].columns]
     print(f'   {len(available)} tickers in data ({len(screen_tickers)-len(available)} missing)')
 
@@ -223,12 +201,11 @@ def compute_indicators(raw_data, mcap_data, screen_tickers):
     print('✓')
 
     print('   [8/8] MCap matrix (₹ Cr)...', end=' ', flush=True)
-    mcap_arr = np.array([float(mcap_data.get(t, 0)) for t in close.columns], dtype=float)
-    mcap_arr[mcap_arr == 0] = np.nan
-    mcap_mat = pd.DataFrame(
-        np.tile(mcap_arr[np.newaxis, :] / 1e7, (len(close), 1)),  # convert to ₹ Cr
-        index=close.index, columns=close.columns
-    )
+    shares_arr = np.array([float(shares_data.get(t, 0)) for t in close.columns], dtype=float)
+    shares_arr[shares_arr == 0] = np.nan
+    shares_row = pd.Series(shares_arr, index=close.columns)
+    # MCap = shares outstanding (cached weekly, ~static) × close (live, per-date)
+    mcap_mat = close.mul(shares_row, axis=1) / 1e7  # ₹ Cr
     for chk in ['RELIANCE.NS', 'TCS.NS', 'INFY.NS']:
         if chk in close.columns:
             val = mcap_mat[chk].iloc[-1]
@@ -282,8 +259,8 @@ def run_screen(ind):
           f'close_nan={int(close_row.isna().sum())}, sma200_nan={int(sma_l_row.isna().sum())}, '
           f'sma21_nan={int(sma_s_row.isna().sum())}')
 
-    m_mcap = mcap_row.ge(MIN_MCAP_INR / 1e7).fillna(False)   # ₹ Cr
-    m_adv  = adv_row.ge(MIN_ADV_INR / 1e7)                   # ₹ Cr
+    m_mcap = mcap_row.ge(MIN_MCAP_CR).fillna(False)   # ₹ Cr
+    m_adv  = adv_row.ge(MIN_ADV_CR)                   # ₹ Cr
     m_vol  = vol_row.le(MAX_VOLATILITY)
     m_rsi  = rsi_row.ge(RSI_THRESHOLD)
     m_sma  = close_row.gt(sma_s_row)
@@ -358,7 +335,7 @@ def push(supabase, top15, all_passing, rejections, screen_date):
         'all_passing': to_records(all_passing.reset_index()) if not all_passing.empty else [],
         'filters'    : {
             'universe': UNIVERSE_NAME, 'portfolio_size': PORTFOLIO_SIZE,
-            'min_mcap_inr': MIN_MCAP_INR, 'min_adv_inr': MIN_ADV_INR,
+            'min_mcap_inr_cr': MIN_MCAP_CR, 'min_adv_inr_cr': MIN_ADV_CR,
             'max_vol': MAX_VOLATILITY, 'rsi_threshold': RSI_THRESHOLD,
             'max_from_high': MAX_FROM_HIGH, 'sma_short': SMA_SHORT,
             'sma_long': SMA_LONG, 'cmf_period': CMF_PERIOD, 'cmf_threshold': CMF_THRESHOLD,
@@ -414,10 +391,10 @@ def main():
     tickers              = load_universe()
     raw, available       = fetch_ohlcv(tickers)
     screen_tickers       = [t for t in tickers if t in available]
-    mcap                 = fetch_mcap(available)
+    shares, _            = load_shares_outstanding()
 
     print('\n⏳ Computing indicators...')
-    ind                  = compute_indicators(raw, mcap, screen_tickers)
+    ind                  = compute_indicators(raw, shares, screen_tickers)
 
     print('\n⏳ Running screen...')
     top15, all_passing, rejections, screen_date = run_screen(ind)
