@@ -156,7 +156,8 @@ def main():
 
     supabase             = create_client(SUPABASE_URL, SUPABASE_KEY)
     tickers              = load_universe()
-    raw, available       = fetch_ohlcv(tickers, lookback_days=LOOKBACK_DAYS)
+    raw, available       = fetch_ohlcv(tickers, lookback_days=LOOKBACK_DAYS,
+                                        batch_size=50, recover_time_budget=900)
     screen_tickers       = [t for t in tickers if t in available]
     shares, _            = load_shares_outstanding()
 
