@@ -100,7 +100,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const GITHUB_OWNER = 'svsashank';
 const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
 const CURRENCY = '₹';
-const ADV_LABEL = 'ADV ₹Cr';
+const ADV_LABEL = 'ADV $M';
 </script>
 
 <div class="header">
@@ -134,8 +134,8 @@ const ADV_LABEL = 'ADV ₹Cr';
         </select>
       </div>
       <div class="field">
-        <label>Initial capital (₹)</label>
-        <input type="number" id="cfgCapital" value="10000000" step="10000">
+        <label>Initial capital ($)</label>
+        <input type="number" id="cfgCapital" value="10000000" step="100000">
       </div>
     </div>
 
@@ -154,8 +154,8 @@ const ADV_LABEL = 'ADV ₹Cr';
         <div class="field"><label>Max % from 52W high</label><input type="number" id="cfgMaxFromHigh" value="0.25" step="0.05"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Min MCap (₹Cr)</label><input type="number" id="cfgMinMcap" value="1000"></div>
-        <div class="field"><label>Min ADV (₹Cr)</label><input type="number" id="cfgMinAdv" value="10"></div>
+        <div class="field"><label>Min MCap ($M)</label><input type="number" id="cfgMinMcap" value="1000"></div>
+        <div class="field"><label>Min ADV ($M)</label><input type="number" id="cfgMinAdv" value="10"></div>
       </div>
       <div class="field">
         <label>CMF threshold</label>
@@ -269,7 +269,7 @@ function gatherConfig() {
 }
 
 let pollTimer = null;
-let pollLatestId = null;
+let pollTriggerTime = null;
 
 async function triggerRun() {
   const pat = document.getElementById('patInput').value.trim();
@@ -301,19 +301,12 @@ async function triggerRun() {
       throw new Error(`GitHub API ${r.status}: ${txt}`);
     }
     setRunStatus('✓ Triggered! Backtests can take 5–20 min depending on date range…', '');
-    pollLatestId = await getLatestRunId();
+    pollTriggerTime = new Date().toISOString();
     startPolling();
   } catch(e) {
     setRunStatus(`Error: ${e.message}`, 'err');
     resetRunBtn();
   }
-}
-
-async function getLatestRunId() {
-  try {
-    const rows = await sb('backtest_runs?select=id&order=triggered_at.desc&limit=1');
-    return rows?.[0]?.id || null;
-  } catch { return null; }
 }
 
 function startPolling() {
@@ -327,10 +320,11 @@ function startPolling() {
     setRunStatus(`⏳ Waiting… (${elapsed}s elapsed)`, '');
 
     try {
-      const latestId = await getLatestRunId();
-      if (latestId && latestId !== pollLatestId) {
+      const rows = await sb('backtest_runs?select=id,triggered_at,run_status&order=triggered_at.desc&limit=1').catch(()=>null);
+      const latest = rows?.[0];
+      if (latest && latest.triggered_at > pollTriggerTime && latest.run_status === 'complete') {
         clearInterval(pollTimer);
-        setRunStatus(`✅ Backtest complete`, 'ok');
+        setRunStatus('✅ Backtest complete', 'ok');
         resetRunBtn();
         await loadLatestRun();
         await loadPastRuns();
@@ -554,7 +548,7 @@ async function loadPastRuns() {
 
 async function loadRunById(id) {
   try {
-    const rows = await sb(`backtest_runs?select=*&id=eq.${id}`);
+    const rows = await sb(`backtest_runs?select=*&id=eq.${id}&limit=1`);
     if (rows && rows.length) renderRun(rows[0]);
   } catch(e) { alert(`Error: ${e.message}`); }
 }
