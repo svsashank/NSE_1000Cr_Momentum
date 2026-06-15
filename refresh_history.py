@@ -27,7 +27,7 @@ with open(CONFIG_FILE) as f:
 UNIVERSE_NAME = CONFIG['universe_name']
 UNIVERSE_FILE = os.path.join(os.path.dirname(__file__), 'nse_universe.json')
 
-HISTORY_YEARS = int(os.environ.get('HISTORY_YEARS', '3'))
+HISTORY_YEARS = int(os.environ.get('HISTORY_YEARS', '7'))
 
 
 def main():
