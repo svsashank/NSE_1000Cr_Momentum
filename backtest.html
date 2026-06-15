@@ -135,7 +135,7 @@ const ADV_LABEL = 'ADV ₹Cr';
       </div>
       <div class="field">
         <label>Initial capital (₹)</label>
-        <input type="number" id="cfgCapital" value="10000000" step="100000">
+        <input type="number" id="cfgCapital" value="10000000" step="10000">
       </div>
     </div>
 
@@ -293,7 +293,7 @@ async function triggerRun() {
           'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ event_type: 'run_backtest', client_payload: payload })
+        body: JSON.stringify({ event_type: 'run_backtest', client_payload: { params: JSON.stringify(payload) } })
       }
     );
     if (r.status !== 204) {
