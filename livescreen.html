@@ -565,25 +565,34 @@ let currentPortfolio = [];
 
 async function loadLatestScreen() {
   try {
-    const rows = await sb('screen_runs?select=run_date,top15,all_passing,all_universe,filters,triggered_at&order=id.desc&limit=1');
+    // Fetch core data — top15 + all_passing in isolation from all_universe
+    const rows = await sb('screen_runs?select=id,run_date,top15,all_passing,filters,triggered_at&order=id.desc&limit=1');
     if (!rows || !rows.length) {
-      document.getElementById('panel-top15').innerHTML   = '<div class="empty">No screen runs yet. Click ▶ Run Screen.</div>';
-      document.getElementById('panel-passing').innerHTML = '<div class="empty">No screen runs yet.</div>';
+      document.getElementById('panel-top15').innerHTML    = '<div class="empty">No screen runs yet. Click ▶ Run Screen.</div>';
+      document.getElementById('panel-passing').innerHTML  = '<div class="empty">No screen runs yet.</div>';
       document.getElementById('panel-universe').innerHTML = '<div class="empty">No screen runs yet.</div>';
       return;
     }
     const run = rows[0];
-    latestTop15    = run.top15        || [];
-    latestPassing  = run.all_passing  || [];
-    latestUniverse = run.all_universe || [];
-    scrScreenDate = run.run_date || '';
+    latestTop15   = run.top15       || [];
+    latestPassing = run.all_passing || [];
+    scrScreenDate = run.run_date    || '';
 
     renderTop15(run.run_date, run.filters);
     renderPassing(run.run_date);
-    renderUniverse(run.run_date, run.filters);
     renderDelta();
+
+    // Fetch all_universe separately so it can never break top15/passing
+    try {
+      const uRows = await sb('screen_runs?select=all_universe&id=eq.' + run.id);
+      latestUniverse = (uRows && uRows[0] && uRows[0].all_universe) || [];
+    } catch(_) {
+      latestUniverse = [];
+    }
+    renderUniverse(run.run_date, run.filters);
+
   } catch(e) {
-    document.getElementById('panel-top15').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    document.getElementById('panel-top15').innerHTML = '<div class="empty">Error loading data: ' + e.message + '</div>';
   }
 }
 
