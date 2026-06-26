@@ -106,10 +106,16 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
 // ── Screener tab ──────────────────────────────────────────────────────────────
 let scrSortCol = 'rank_score';
 let scrSortAsc = false;
+let scrScreenDate = '';
 
 function val(id) {
   const v = document.getElementById(id)?.value;
   return v === '' || v === null || v === undefined ? null : parseFloat(v);
+}
+
+function countFailures(r) {
+  return [r.p_mcap, r.p_adv, r.p_vol, r.p_rsi, r.p_sma, r.p_high, r.p_cmf]
+    .filter(v => v === false || v === 0).length;
 }
 
 function applyScreener() {
@@ -118,6 +124,12 @@ function applyScreener() {
     return;
   }
 
+  // Update date badge
+  const badge = document.getElementById('scr-date-badge');
+  if (badge && scrScreenDate) badge.textContent = 'Data as of ' + scrScreenDate;
+
+  const priceMin = val('sf-price-min');
+  const priceMax = val('sf-price-max');
   const mcapMin  = val('sf-mcap-min');
   const mcapMax  = val('sf-mcap-max');
   const advMin   = val('sf-adv-min');
@@ -127,24 +139,26 @@ function applyScreener() {
   const cmfMin   = val('sf-cmf-min');
   const highMax  = val('sf-high-max');
   const rankMin  = val('sf-rank-min');
-  const passesEl = document.getElementById('sf-passes-all');
-  const passesAll = passesEl.value === '' ? null : passesEl.value === 'true';
+  const statusVal = document.getElementById('sf-passes-all').value;
 
   let results = latestUniverse.filter(r => {
-    if (mcapMin  !== null && (r.mcap_m ?? 0)          < mcapMin)  return false;
-    if (mcapMax  !== null && (r.mcap_m ?? Infinity)    > mcapMax)  return false;
-    if (advMin   !== null && (r.adv_m  ?? 0)           < advMin)   return false;
+    if (priceMin !== null && (r.price  ?? 0)           < priceMin) return false;
+    if (priceMax !== null && (r.price  ?? Infinity)     > priceMax) return false;
+    if (mcapMin  !== null && (r.mcap_m ?? 0)            < mcapMin)  return false;
+    if (mcapMax  !== null && (r.mcap_m ?? Infinity)     > mcapMax)  return false;
+    if (advMin   !== null && (r.adv_m  ?? 0)            < advMin)   return false;
     if (rsiMin   !== null && (r.rsi    ?? 0)            < rsiMin)   return false;
     if (rsiMax   !== null && (r.rsi    ?? 100)          > rsiMax)   return false;
     if (volMax   !== null && (r.volatility_pct ?? 999)  > volMax)   return false;
     if (cmfMin   !== null && (r.cmf    ?? -1)           < cmfMin)   return false;
     if (highMax  !== null && (r.pct_from_high ?? -999)  < -highMax) return false;
     if (rankMin  !== null && (r.rank_score ?? 0)        < rankMin)  return false;
-    if (passesAll !== null && !!r.passes_all !== passesAll)          return false;
+    if (statusVal === 'all')  return !!r.passes_all;
+    if (statusVal === 'near') return !r.passes_all && countFailures(r) === 1;
+    if (statusVal === 'none') return !r.passes_all && countFailures(r) >= 2;
     return true;
   });
 
-  // Sort
   results.sort((a, b) => {
     const av = a[scrSortCol] ?? -Infinity;
     const bv = b[scrSortCol] ?? -Infinity;
@@ -155,10 +169,9 @@ function applyScreener() {
 }
 
 function resetScreener() {
-  ['sf-mcap-min','sf-mcap-max','sf-adv-min','sf-rsi-min','sf-rsi-max',
-   'sf-vol-max','sf-cmf-min','sf-high-max','sf-rank-min'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
+  ['sf-price-min','sf-price-max','sf-mcap-min','sf-mcap-max','sf-adv-min',
+   'sf-rsi-min','sf-rsi-max','sf-vol-max','sf-cmf-min','sf-high-max','sf-rank-min'
+  ].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('sf-passes-all').value = '';
   applyScreener();
 }
@@ -172,9 +185,20 @@ function setScrSort(col) {
 function renderScreenerTable(rows) {
   const topSet     = new Set(latestTop15.map(r => r.ticker));
   const passingSet = new Set(latestPassing.map(r => r.ticker));
+  const filterKeys   = ['p_mcap','p_adv','p_vol','p_rsi','p_sma','p_high','p_cmf'];
+  const filterLabels = ['MCap','ADV','Vol','RSI','SMA','52W','CMF'];
 
-  document.getElementById('scr-summary').textContent =
-    `${rows.length} stocks match · sorted by ${scrSortCol} ${scrSortAsc ? '▲' : '▼'}`;
+  // Summary chips
+  const total    = latestUniverse.length;
+  const passing  = latestUniverse.filter(r => r.passes_all).length;
+  const nearMiss = latestUniverse.filter(r => !r.passes_all && countFailures(r) === 1).length;
+  const chip = (label, val, color) =>
+    `<span style="padding:2px 10px;border-radius:20px;background:${color}22;color:${color};font-size:11px;font-weight:600;">${label}: ${val}</span>`;
+  document.getElementById('scr-summary').innerHTML =
+    chip('Showing', rows.length + ' of ' + total, 'var(--text)') +
+    chip('Passes all', passing, 'var(--green)') +
+    chip('Near miss', nearMiss, '#f59e0b') +
+    `<span style="font-size:11px;color:var(--muted);margin-left:4px;">· sorted by <strong>${scrSortCol}</strong> ${scrSortAsc ? '▲' : '▼'}</span>`;
 
   if (!rows.length) {
     document.getElementById('scr-table').innerHTML = '<div class="empty">No stocks match the current filters.</div>';
@@ -182,48 +206,44 @@ function renderScreenerTable(rows) {
   }
 
   const cols = [
-    { key:'rank_score',     label:'Rank Score' },
-    { key:'ticker',         label:'Ticker',      noSort:true },
-    { key:'price',          label:'Price' },
+    { key:'ticker',         label:'Ticker',         noSort:true },
+    { key:'price',          label:'Price ₹' },
     { key:'mcap_m',         label:'MCap ₹Cr' },
     { key:'adv_m',          label:'ADV ₹Cr' },
     { key:'rsi',            label:'RSI' },
     { key:'volatility_pct', label:'Vol %' },
     { key:'cmf',            label:'CMF' },
-    { key:'pct_from_high',  label:'% from 52W High' },
-    { key:'passes_all',     label:'Passes All',  noSort:true },
+    { key:'pct_from_high',  label:'% 52W High' },
+    { key:'rank_score',     label:'Rank Score' },
   ];
 
-  const arrow = col => {
-    if (scrSortCol !== col) return '<span style="color:var(--muted);opacity:.4">⇅</span>';
-    return scrSortAsc ? '▲' : '▼';
-  };
+  const arrow = col => scrSortCol !== col
+    ? '<span style="color:var(--muted);opacity:.35">⇅</span>'
+    : (scrSortAsc ? '▲' : '▼');
 
   let html = `<div class="tbl-wrap"><table><thead><tr><th>#</th>`;
   cols.forEach(c => {
-    if (c.noSort) {
-      html += `<th>${c.label}</th>`;
-    } else {
-      html += `<th style="cursor:pointer;user-select:none" onclick="setScrSort('${c.key}')">${c.label} ${arrow(c.key)}</th>`;
-    }
+    html += c.noSort
+      ? `<th>${c.label}</th>`
+      : `<th style="cursor:pointer;user-select:none" onclick="setScrSort('${c.key}')">${c.label} ${arrow(c.key)}</th>`;
   });
+  // Per-filter columns
+  filterLabels.forEach(l => { html += `<th style="text-align:center">${l}</th>`; });
   html += '</tr></thead><tbody>';
+
+  const tick  = '<span style="color:var(--green);font-size:13px">✓</span>';
+  const cross = '<span style="color:var(--red);font-size:13px">✗</span>';
 
   rows.forEach((r, i) => {
     const inTopN    = topSet.has(r.ticker);
     const inPassing = passingSet.has(r.ticker);
+    const failures  = countFailures(r);
     let rowStyle = '', tickerStyle = '', badge = '';
-    if (inTopN) {
-      rowStyle = 'background:rgba(62,207,142,.07);';
-      tickerStyle = 'color:var(--green);';
-      badge = ' ★';
-    } else if (inPassing) {
-      rowStyle = 'background:rgba(91,143,255,.05);';
-      tickerStyle = 'color:var(--accent);';
-    }
-    const passCell = r.passes_all
-      ? '<span style="color:var(--green)">✓ All</span>'
-      : '<span style="color:var(--muted)">✗</span>';
+    if (inTopN)      { rowStyle = 'background:rgba(62,207,142,.07);'; tickerStyle = 'color:var(--green);'; badge = ' ★'; }
+    else if (inPassing) { rowStyle = 'background:rgba(91,143,255,.05);'; tickerStyle = 'color:var(--accent);'; }
+    else if (failures === 1) { rowStyle = 'background:rgba(245,158,11,.04);'; }
+
+    const filterCells = filterKeys.map(k => `<td style="text-align:center">${r[k] ? tick : cross}</td>`).join('');
 
     html += `<tr style="${rowStyle}">
       <td class="rank">${i + 1}</td>
@@ -235,8 +255,8 @@ function renderScreenerTable(rows) {
       <td>${fmtNum(r.volatility_pct, 1)}%</td>
       <td>${fmtNum(r.cmf, 3)}</td>
       <td>${fmtNum(r.pct_from_high, 1)}%</td>
-      <td style="text-align:center">${passCell}</td>
       <td>${r.rank_score != null ? fmtNum(r.rank_score, 4) : '—'}</td>
+      ${filterCells}
     </tr>`;
   });
 
@@ -244,15 +264,16 @@ function renderScreenerTable(rows) {
   document.getElementById('scr-table').innerHTML = html;
 }
 
-// Auto-apply when switching to screener tab
-const _origSwitchTab = switchTab;
-
-// Hook screener tab to auto-apply on first open
+// Hook switchTab to set date badge + auto-apply on screener open
 (function() {
   const origSwitch = window.switchTab;
   window.switchTab = function(id, el) {
     origSwitch(id, el);
-    if (id === 'screener' && latestUniverse.length) applyScreener();
+    if (id === 'screener') {
+      const badge = document.getElementById('scr-date-badge');
+      if (badge && scrScreenDate) badge.textContent = 'Data as of ' + scrScreenDate;
+      if (latestUniverse.length) applyScreener();
+    }
   };
 })();
 
@@ -304,62 +325,49 @@ const _origSwitchTab = switchTab;
 <div id="panel-history" class="panel"><div class="empty">Loading run history…</div></div>
 
 <div id="panel-screener" class="panel">
-  <div id="scr-controls" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <span style="font-weight:600;font-size:13px;">Filter Universe</span>
+  <!-- Header bar with date stamp -->
+  <div id="scr-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <div>
+      <span style="font-weight:600;font-size:15px;">Stock Screener</span>
+      <span id="scr-date-badge" style="margin-left:10px;padding:2px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);font-size:11px;color:var(--muted);"></span>
+    </div>
+    <span style="font-size:11px;color:var(--muted);">Data from last screen run · re-run screen to refresh</span>
+  </div>
+
+  <!-- Filter controls -->
+  <div id="scr-controls" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Filters</span>
       <div style="display:flex;gap:8px;">
         <button onclick="resetScreener()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:12px;cursor:pointer;">Reset</button>
-        <button onclick="applyScreener()" style="padding:5px 14px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Apply Filters</button>
+        <button onclick="applyScreener()" style="padding:5px 14px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Apply</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px;">
+      <div class="scr-field"><label>Price ₹ — min</label><input type="number" id="sf-price-min" placeholder="e.g. 100"></div>
+      <div class="scr-field"><label>Price ₹ — max</label><input type="number" id="sf-price-max" placeholder="e.g. 5000"></div>
+      <div class="scr-field"><label>MCap ₹Cr — min</label><input type="number" id="sf-mcap-min" placeholder="e.g. 1000"></div>
+      <div class="scr-field"><label>MCap ₹Cr — max</label><input type="number" id="sf-mcap-max" placeholder="e.g. 50000"></div>
+      <div class="scr-field"><label>ADV ₹Cr — min</label><input type="number" id="sf-adv-min" placeholder="e.g. 10"></div>
+      <div class="scr-field"><label>RSI — min</label><input type="number" id="sf-rsi-min" placeholder="e.g. 50" min="0" max="100"></div>
+      <div class="scr-field"><label>RSI — max</label><input type="number" id="sf-rsi-max" placeholder="e.g. 80" min="0" max="100"></div>
+      <div class="scr-field"><label>Volatility % — max</label><input type="number" id="sf-vol-max" placeholder="e.g. 75"></div>
+      <div class="scr-field"><label>CMF — min</label><input type="number" id="sf-cmf-min" placeholder="e.g. 0.1" step="0.05"></div>
+      <div class="scr-field"><label>% from 52W High — max loss</label><input type="number" id="sf-high-max" placeholder="e.g. 25" min="0" max="100"></div>
+      <div class="scr-field"><label>Rank Score — min</label><input type="number" id="sf-rank-min" placeholder="e.g. 1.0" step="0.1"></div>
       <div class="scr-field">
-        <label>MCap ₹Cr — min</label>
-        <input type="number" id="sf-mcap-min" placeholder="e.g. 1000">
-      </div>
-      <div class="scr-field">
-        <label>MCap ₹Cr — max</label>
-        <input type="number" id="sf-mcap-max" placeholder="e.g. 50000">
-      </div>
-      <div class="scr-field">
-        <label>ADV ₹Cr — min</label>
-        <input type="number" id="sf-adv-min" placeholder="e.g. 10">
-      </div>
-      <div class="scr-field">
-        <label>RSI — min</label>
-        <input type="number" id="sf-rsi-min" placeholder="e.g. 50" min="0" max="100">
-      </div>
-      <div class="scr-field">
-        <label>RSI — max</label>
-        <input type="number" id="sf-rsi-max" placeholder="e.g. 80" min="0" max="100">
-      </div>
-      <div class="scr-field">
-        <label>Volatility % — max</label>
-        <input type="number" id="sf-vol-max" placeholder="e.g. 75">
-      </div>
-      <div class="scr-field">
-        <label>CMF — min</label>
-        <input type="number" id="sf-cmf-min" placeholder="e.g. 0.1" step="0.05">
-      </div>
-      <div class="scr-field">
-        <label>% from 52W High — max loss</label>
-        <input type="number" id="sf-high-max" placeholder="e.g. 25" min="0" max="100">
-      </div>
-      <div class="scr-field">
-        <label>Rank Score — min</label>
-        <input type="number" id="sf-rank-min" placeholder="e.g. 1.0" step="0.1">
-      </div>
-      <div class="scr-field" style="display:flex;flex-direction:column;justify-content:flex-end;">
-        <label style="margin-bottom:4px;">Passes all momentum filters</label>
+        <label>Momentum status</label>
         <select id="sf-passes-all" style="padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">
           <option value="">Any</option>
-          <option value="true">Yes — passes all</option>
-          <option value="false">No — fails at least one</option>
+          <option value="all">✓ Passes all filters</option>
+          <option value="near">⚡ Near miss (fails exactly 1)</option>
+          <option value="none">✗ Fails 2+ filters</option>
         </select>
       </div>
     </div>
   </div>
-  <div id="scr-summary" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
+
+  <div id="scr-summary" style="font-size:12px;color:var(--muted);margin-bottom:8px;display:flex;gap:16px;"></div>
   <div id="scr-table"><div class="empty">Run a screen first, then use filters above.</div></div>
 </div>
 
@@ -568,6 +576,7 @@ async function loadLatestScreen() {
     latestTop15    = run.top15        || [];
     latestPassing  = run.all_passing  || [];
     latestUniverse = run.all_universe || [];
+    scrScreenDate = run.run_date || '';
 
     renderTop15(run.run_date, run.filters);
     renderPassing(run.run_date);
@@ -856,10 +865,16 @@ loadAll();
 // ── Screener tab ──────────────────────────────────────────────────────────────
 let scrSortCol = 'rank_score';
 let scrSortAsc = false;
+let scrScreenDate = '';
 
 function val(id) {
   const v = document.getElementById(id)?.value;
   return v === '' || v === null || v === undefined ? null : parseFloat(v);
+}
+
+function countFailures(r) {
+  return [r.p_mcap, r.p_adv, r.p_vol, r.p_rsi, r.p_sma, r.p_high, r.p_cmf]
+    .filter(v => v === false || v === 0).length;
 }
 
 function applyScreener() {
@@ -868,6 +883,12 @@ function applyScreener() {
     return;
   }
 
+  // Update date badge
+  const badge = document.getElementById('scr-date-badge');
+  if (badge && scrScreenDate) badge.textContent = 'Data as of ' + scrScreenDate;
+
+  const priceMin = val('sf-price-min');
+  const priceMax = val('sf-price-max');
   const mcapMin  = val('sf-mcap-min');
   const mcapMax  = val('sf-mcap-max');
   const advMin   = val('sf-adv-min');
@@ -877,24 +898,26 @@ function applyScreener() {
   const cmfMin   = val('sf-cmf-min');
   const highMax  = val('sf-high-max');
   const rankMin  = val('sf-rank-min');
-  const passesEl = document.getElementById('sf-passes-all');
-  const passesAll = passesEl.value === '' ? null : passesEl.value === 'true';
+  const statusVal = document.getElementById('sf-passes-all').value;
 
   let results = latestUniverse.filter(r => {
-    if (mcapMin  !== null && (r.mcap_m ?? 0)          < mcapMin)  return false;
-    if (mcapMax  !== null && (r.mcap_m ?? Infinity)    > mcapMax)  return false;
-    if (advMin   !== null && (r.adv_m  ?? 0)           < advMin)   return false;
+    if (priceMin !== null && (r.price  ?? 0)           < priceMin) return false;
+    if (priceMax !== null && (r.price  ?? Infinity)     > priceMax) return false;
+    if (mcapMin  !== null && (r.mcap_m ?? 0)            < mcapMin)  return false;
+    if (mcapMax  !== null && (r.mcap_m ?? Infinity)     > mcapMax)  return false;
+    if (advMin   !== null && (r.adv_m  ?? 0)            < advMin)   return false;
     if (rsiMin   !== null && (r.rsi    ?? 0)            < rsiMin)   return false;
     if (rsiMax   !== null && (r.rsi    ?? 100)          > rsiMax)   return false;
     if (volMax   !== null && (r.volatility_pct ?? 999)  > volMax)   return false;
     if (cmfMin   !== null && (r.cmf    ?? -1)           < cmfMin)   return false;
     if (highMax  !== null && (r.pct_from_high ?? -999)  < -highMax) return false;
     if (rankMin  !== null && (r.rank_score ?? 0)        < rankMin)  return false;
-    if (passesAll !== null && !!r.passes_all !== passesAll)          return false;
+    if (statusVal === 'all')  return !!r.passes_all;
+    if (statusVal === 'near') return !r.passes_all && countFailures(r) === 1;
+    if (statusVal === 'none') return !r.passes_all && countFailures(r) >= 2;
     return true;
   });
 
-  // Sort
   results.sort((a, b) => {
     const av = a[scrSortCol] ?? -Infinity;
     const bv = b[scrSortCol] ?? -Infinity;
@@ -905,10 +928,9 @@ function applyScreener() {
 }
 
 function resetScreener() {
-  ['sf-mcap-min','sf-mcap-max','sf-adv-min','sf-rsi-min','sf-rsi-max',
-   'sf-vol-max','sf-cmf-min','sf-high-max','sf-rank-min'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
+  ['sf-price-min','sf-price-max','sf-mcap-min','sf-mcap-max','sf-adv-min',
+   'sf-rsi-min','sf-rsi-max','sf-vol-max','sf-cmf-min','sf-high-max','sf-rank-min'
+  ].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('sf-passes-all').value = '';
   applyScreener();
 }
@@ -922,9 +944,20 @@ function setScrSort(col) {
 function renderScreenerTable(rows) {
   const topSet     = new Set(latestTop15.map(r => r.ticker));
   const passingSet = new Set(latestPassing.map(r => r.ticker));
+  const filterKeys   = ['p_mcap','p_adv','p_vol','p_rsi','p_sma','p_high','p_cmf'];
+  const filterLabels = ['MCap','ADV','Vol','RSI','SMA','52W','CMF'];
 
-  document.getElementById('scr-summary').textContent =
-    `${rows.length} stocks match · sorted by ${scrSortCol} ${scrSortAsc ? '▲' : '▼'}`;
+  // Summary chips
+  const total    = latestUniverse.length;
+  const passing  = latestUniverse.filter(r => r.passes_all).length;
+  const nearMiss = latestUniverse.filter(r => !r.passes_all && countFailures(r) === 1).length;
+  const chip = (label, val, color) =>
+    `<span style="padding:2px 10px;border-radius:20px;background:${color}22;color:${color};font-size:11px;font-weight:600;">${label}: ${val}</span>`;
+  document.getElementById('scr-summary').innerHTML =
+    chip('Showing', rows.length + ' of ' + total, 'var(--text)') +
+    chip('Passes all', passing, 'var(--green)') +
+    chip('Near miss', nearMiss, '#f59e0b') +
+    `<span style="font-size:11px;color:var(--muted);margin-left:4px;">· sorted by <strong>${scrSortCol}</strong> ${scrSortAsc ? '▲' : '▼'}</span>`;
 
   if (!rows.length) {
     document.getElementById('scr-table').innerHTML = '<div class="empty">No stocks match the current filters.</div>';
@@ -932,48 +965,44 @@ function renderScreenerTable(rows) {
   }
 
   const cols = [
-    { key:'rank_score',     label:'Rank Score' },
-    { key:'ticker',         label:'Ticker',      noSort:true },
-    { key:'price',          label:'Price' },
+    { key:'ticker',         label:'Ticker',         noSort:true },
+    { key:'price',          label:'Price ₹' },
     { key:'mcap_m',         label:'MCap ₹Cr' },
     { key:'adv_m',          label:'ADV ₹Cr' },
     { key:'rsi',            label:'RSI' },
     { key:'volatility_pct', label:'Vol %' },
     { key:'cmf',            label:'CMF' },
-    { key:'pct_from_high',  label:'% from 52W High' },
-    { key:'passes_all',     label:'Passes All',  noSort:true },
+    { key:'pct_from_high',  label:'% 52W High' },
+    { key:'rank_score',     label:'Rank Score' },
   ];
 
-  const arrow = col => {
-    if (scrSortCol !== col) return '<span style="color:var(--muted);opacity:.4">⇅</span>';
-    return scrSortAsc ? '▲' : '▼';
-  };
+  const arrow = col => scrSortCol !== col
+    ? '<span style="color:var(--muted);opacity:.35">⇅</span>'
+    : (scrSortAsc ? '▲' : '▼');
 
   let html = `<div class="tbl-wrap"><table><thead><tr><th>#</th>`;
   cols.forEach(c => {
-    if (c.noSort) {
-      html += `<th>${c.label}</th>`;
-    } else {
-      html += `<th style="cursor:pointer;user-select:none" onclick="setScrSort('${c.key}')">${c.label} ${arrow(c.key)}</th>`;
-    }
+    html += c.noSort
+      ? `<th>${c.label}</th>`
+      : `<th style="cursor:pointer;user-select:none" onclick="setScrSort('${c.key}')">${c.label} ${arrow(c.key)}</th>`;
   });
+  // Per-filter columns
+  filterLabels.forEach(l => { html += `<th style="text-align:center">${l}</th>`; });
   html += '</tr></thead><tbody>';
+
+  const tick  = '<span style="color:var(--green);font-size:13px">✓</span>';
+  const cross = '<span style="color:var(--red);font-size:13px">✗</span>';
 
   rows.forEach((r, i) => {
     const inTopN    = topSet.has(r.ticker);
     const inPassing = passingSet.has(r.ticker);
+    const failures  = countFailures(r);
     let rowStyle = '', tickerStyle = '', badge = '';
-    if (inTopN) {
-      rowStyle = 'background:rgba(62,207,142,.07);';
-      tickerStyle = 'color:var(--green);';
-      badge = ' ★';
-    } else if (inPassing) {
-      rowStyle = 'background:rgba(91,143,255,.05);';
-      tickerStyle = 'color:var(--accent);';
-    }
-    const passCell = r.passes_all
-      ? '<span style="color:var(--green)">✓ All</span>'
-      : '<span style="color:var(--muted)">✗</span>';
+    if (inTopN)      { rowStyle = 'background:rgba(62,207,142,.07);'; tickerStyle = 'color:var(--green);'; badge = ' ★'; }
+    else if (inPassing) { rowStyle = 'background:rgba(91,143,255,.05);'; tickerStyle = 'color:var(--accent);'; }
+    else if (failures === 1) { rowStyle = 'background:rgba(245,158,11,.04);'; }
+
+    const filterCells = filterKeys.map(k => `<td style="text-align:center">${r[k] ? tick : cross}</td>`).join('');
 
     html += `<tr style="${rowStyle}">
       <td class="rank">${i + 1}</td>
@@ -985,8 +1014,8 @@ function renderScreenerTable(rows) {
       <td>${fmtNum(r.volatility_pct, 1)}%</td>
       <td>${fmtNum(r.cmf, 3)}</td>
       <td>${fmtNum(r.pct_from_high, 1)}%</td>
-      <td style="text-align:center">${passCell}</td>
       <td>${r.rank_score != null ? fmtNum(r.rank_score, 4) : '—'}</td>
+      ${filterCells}
     </tr>`;
   });
 
@@ -994,15 +1023,16 @@ function renderScreenerTable(rows) {
   document.getElementById('scr-table').innerHTML = html;
 }
 
-// Auto-apply when switching to screener tab
-const _origSwitchTab = switchTab;
-
-// Hook screener tab to auto-apply on first open
+// Hook switchTab to set date badge + auto-apply on screener open
 (function() {
   const origSwitch = window.switchTab;
   window.switchTab = function(id, el) {
     origSwitch(id, el);
-    if (id === 'screener' && latestUniverse.length) applyScreener();
+    if (id === 'screener') {
+      const badge = document.getElementById('scr-date-badge');
+      if (badge && scrScreenDate) badge.textContent = 'Data as of ' + scrScreenDate;
+      if (latestUniverse.length) applyScreener();
+    }
   };
 })();
 
