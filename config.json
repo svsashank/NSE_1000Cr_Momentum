@@ -14,7 +14,12 @@
   "cmf_period": 20,
   "cmf_threshold": 0.1,
   "lookback_days": 550,
-  "adv_divisor": 1e7,
-  "anchors": ["^NSEI", "RELIANCE.NS", "TCS.NS"],
-  "_comment": "All thresholds in INR Cr (1 Cr = 1e7 INR). Edit and commit to change screener behavior - no code changes needed. shares_outstanding cache refreshed weekly; mcap = shares_outstanding * latest_close / 1e7."
+  "adv_divisor": 10000000.0,
+  "anchors": [
+    "^NSEI",
+    "RELIANCE.NS",
+    "TCS.NS"
+  ],
+  "_comment": "All thresholds in INR Cr (1 Cr = 1e7 INR). Edit and commit to change screener behavior - no code changes needed. shares_outstanding cache refreshed weekly; mcap = shares_outstanding * latest_close / 1e7.",
+  "sma_buffer": 0.05
 }
