@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>US Momentum Screener</title>
+<title>NSE Momentum Screener</title>
 <style>
   :root {
     --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
@@ -119,8 +119,9 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
 </div>
 
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('top15',this)">Top 15</div>
+  <div class="tab active" onclick="switchTab('top15',this)" id="tab-top15">Top N</div>
   <div class="tab" onclick="switchTab('passing',this)">All Passing</div>
+  <div class="tab" onclick="switchTab('universe',this)">Full Universe</div>
   <div class="tab" onclick="switchTab('portfolio',this)">Portfolio</div>
   <div class="tab" onclick="switchTab('params',this)">⚙ Parameters</div>
   <div class="tab" onclick="switchTab('delta',this)">Rebalance Delta</div>
@@ -129,6 +130,7 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
 
 <div id="panel-top15"    class="panel active"><div class="empty">Run a screen or wait for data to load…</div></div>
 <div id="panel-passing"  class="panel"><div class="empty">Run a screen to see all passing stocks.</div></div>
+<div id="panel-universe" class="panel"><div class="empty">Run a screen to see the full ranked universe.</div></div>
 <div id="panel-portfolio" class="panel">
   <p class="section-title">Current Holdings</p>
   <div class="crud-row">
@@ -344,6 +346,7 @@ async function loadLatestScreen() {
 
     renderTop15(run.run_date, run.filters);
     renderPassing(run.run_date);
+    renderUniverse(run.run_date, run.filters);
     renderDelta();
   } catch(e) {
     document.getElementById('panel-top15').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
@@ -356,14 +359,19 @@ function fmtNum(v, dec=2) {
 }
 
 function renderTop15(runDate, filters) {
+  const n = filters?.portfolio_size || latestTop15.length || 15;
+  // Update tab label dynamically
+  const tabEl = document.getElementById('tab-top15');
+  if (tabEl) tabEl.textContent = `Top ${n}`;
+
   if (!latestTop15.length) {
-    document.getElementById('panel-top15').innerHTML = '<div class="empty">No stocks in top 15.</div>';
+    document.getElementById('panel-top15').innerHTML = '<div class="empty">No stocks in top list.</div>';
     return;
   }
   let html = `<div class="alert info" style="margin-bottom:16px">
     Screen date: <strong>${runDate}</strong> &nbsp;·&nbsp;
     Universe: ${filters?.universe || 'nse_full'} &nbsp;·&nbsp;
-    Top ${filters?.portfolio_size || 15} of ${latestPassing.length} passing
+    Top ${n} of ${latestPassing.length} passing
   </div>
   <div class="tbl-wrap"><table>
   <thead><tr>
@@ -417,6 +425,48 @@ function renderPassing(runDate) {
   });
   html += '</tbody></table></div>';
   document.getElementById('panel-passing').innerHTML = html;
+}
+
+function renderUniverse(runDate, filters) {
+  const panel = document.getElementById('panel-universe');
+  if (!latestPassing.length) {
+    panel.innerHTML = '<div class="empty">No data yet — run a screen first.</div>';
+    return;
+  }
+  // Sort ALL passing stocks by rank_score descending (they're already ranked
+  // but re-sort defensively to guarantee order)
+  const sorted = [...latestPassing].sort((a, b) => (b.rank_score ?? 0) - (a.rank_score ?? 0));
+  const topN = filters?.portfolio_size || 15;
+  const topSet = new Set(latestTop15.map(r => r.ticker));
+
+  let html = `<div class="alert info" style="margin-bottom:16px">
+    ${sorted.length} stocks passed all filters on ${runDate} &nbsp;·&nbsp;
+    Top <strong>${topN}</strong> highlighted
+  </div>
+  <div class="tbl-wrap"><table>
+  <thead><tr>
+    <th>#</th><th>Ticker</th><th>Price</th><th>Rank Score</th>
+    <th>RSI</th><th>Vol %</th><th>ADV ₹Cr</th><th>CMF</th><th>MCap ₹Cr</th><th>% from 52W High</th>
+  </tr></thead><tbody>`;
+
+  sorted.forEach((r, i) => {
+    const inTop = topSet.has(r.ticker);
+    const rowStyle = inTop ? 'background:rgba(62,207,142,.07);' : '';
+    html += `<tr style="${rowStyle}">
+      <td class="rank">${i + 1}</td>
+      <td class="ticker-cell" style="${inTop ? 'color:var(--green)' : ''}">${r.ticker}${inTop ? ' ★' : ''}</td>
+      <td>₹${fmtNum(r.price)}</td>
+      <td>${fmtNum(r.rank_score, 4)}</td>
+      <td>${fmtNum(r.rsi, 1)}</td>
+      <td>${fmtNum(r.volatility_pct, 1)}%</td>
+      <td>${fmtNum(r.adv_m, 1)}</td>
+      <td>${fmtNum(r.cmf, 3)}</td>
+      <td>${fmtNum(r.mcap_m, 0)}</td>
+      <td>${fmtNum(r.pct_from_high, 1)}%</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  panel.innerHTML = html;
 }
 
 function renderDelta() {
