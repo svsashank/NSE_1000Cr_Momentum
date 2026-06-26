@@ -93,32 +93,47 @@ def run_screen(ind, config):
     for k, v in rejections.items():
         print(f'   {k:<12}: {v}')
 
+    # ── Full universe: all valid tickers with indicators + per-filter pass flags ──
+    all_tickers = valid[valid].index.tolist()
+    universe_df = pd.DataFrame({
+        'ticker'        : all_tickers,
+        'price'         : close_row[all_tickers].values,
+        'rank_score'    : rank_row[all_tickers].values,
+        'rsi'           : rsi_row[all_tickers].values,
+        'volatility_pct': vol_row[all_tickers].values * 100,
+        'adv_m'         : adv_row[all_tickers].values,
+        'mcap_m'        : mcap_row[all_tickers].values,
+        'pct_from_high' : (close_row[all_tickers].values / high52_row[all_tickers].values - 1) * 100,
+        'cmf'           : cmf_row[all_tickers].values,
+        'sma21'         : sma_s_row[all_tickers].values,
+        'sma200'        : sma_l_row[all_tickers].values,
+        # Per-filter pass flags (cumulative waterfall order)
+        'p_mcap'        : m_mcap[all_tickers].values,
+        'p_adv'         : m_adv[all_tickers].values,
+        'p_vol'         : m_vol[all_tickers].values,
+        'p_rsi'         : m_rsi[all_tickers].values,
+        'p_sma'         : m_sma[all_tickers].values,
+        'p_high'        : m_high[all_tickers].values,
+        'p_cmf'         : m_cmf[all_tickers].values,
+        'passes_all'    : passed[all_tickers].values,
+    }).sort_values('rank_score', ascending=False).reset_index(drop=True)
+    universe_df.index += 1
+
     if not passed.any():
-        return pd.DataFrame(), pd.DataFrame(), rejections, screen_date
+        return pd.DataFrame(), pd.DataFrame(), universe_df, rejections, screen_date
 
     pt     = passed[passed].index.tolist()
-    result = pd.DataFrame({
-        'ticker'        : pt,
-        'price'         : close_row[pt].values,
-        'rank_score'    : rank_row[pt].values,
-        'rsi'           : rsi_row[pt].values,
-        'volatility_pct': vol_row[pt].values * 100,
-        'adv_m'         : adv_row[pt].values,
-        'mcap_m'        : mcap_row[pt].values,
-        'pct_from_high' : (close_row[pt].values / high52_row[pt].values - 1) * 100,
-        'cmf'           : cmf_row[pt].values,
-        'sma21'         : sma_s_row[pt].values,
-        'sma200'        : sma_l_row[pt].values,
-    }).dropna(subset=['rank_score']).sort_values('rank_score', ascending=False).reset_index(drop=True)
+    result = universe_df[universe_df['ticker'].isin(pt)].copy().reset_index(drop=True)
     result.index += 1
 
     top15       = result.head(PORTFOLIO_SIZE).copy()
     all_passing = result.copy()
 
     print(f'\n✅ Screen date  : {screen_date.date()}')
+    print(f'   Universe     : {len(universe_df)} (valid data)')
     print(f'   Passing      : {len(all_passing)}')
     print(f'   Top {PORTFOLIO_SIZE}       : {len(top15)}')
     print(f'\n🏆 TOP {len(top15)}:')
     print(top15[['ticker', 'price', 'rank_score', 'rsi', 'adv_m', 'cmf']].to_string())
 
-    return top15, all_passing, rejections, screen_date
+    return top15, all_passing, universe_df, rejections, screen_date
