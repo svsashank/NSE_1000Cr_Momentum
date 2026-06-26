@@ -98,7 +98,18 @@
 
 <!-- ── Config: paste your Supabase anon key here ──────────────────────────── -->
 <script>
-const SUPABASE_URL = 'https://ckvdwqzuklpvbpvqnmyu.supabase.co';
+// Debug toast — only shows when URL contains ?debug
+const DEBUG = location.search.includes('debug');
+function dbg(msg) {
+  if (!DEBUG) return;
+  const t = document.createElement('div');
+  t.textContent = '⚠ ' + msg;
+  t.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1e293b;color:#f87171;font-size:11px;padding:8px 14px;border-radius:8px;border:1px solid #f87171;z-index:9999;max-width:90vw;word-break:break-all';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 10000);
+}
+
+'https://ckvdwqzuklpvbpvqnmyu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrdmR3cXp1a2xwdmJwdnFubXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjU3NTMsImV4cCI6MjA5Njc0MTc1M30.MQ4y1iUgMUwRBYNQrmndode-6T9o92AyJcQJsH8rkWo';
 const GITHUB_OWNER = 'svsashank';
 const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
@@ -416,7 +427,7 @@ async function sb(path, opts={}) {
     },
     ...opts
   });
-  if (!r.ok) throw new Error(`Supabase ${r.status}: ${await r.text()}`);
+  if (!r.ok) { const msg = `Supabase ${r.status}: ${await r.text()}`; dbg(msg); throw new Error(msg); }
   const txt = await r.text();
   return txt ? JSON.parse(txt) : null;
 }
@@ -608,6 +619,7 @@ async function loadLatestScreen() {
     renderUniverse(run.run_date, run.filters);
 
   } catch(e) {
+    dbg('loadLatestScreen: ' + e.message);
     document.getElementById('panel-top15').innerHTML = '<div class="empty">Error loading data: ' + e.message + '</div>';
   }
 }
