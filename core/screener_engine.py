@@ -48,6 +48,7 @@ def run_screen(ind, config):
     MAX_FROM_HIGH  = config['max_from_high']
     CMF_THRESHOLD  = config['cmf_threshold']
     PORTFOLIO_SIZE = config['portfolio_size']
+    SMA_BUFFER     = config.get('sma_buffer', 0.05)   # price must be >= SMA21 × (1 - buffer)
     anchors        = config['anchors']
 
     screen_date = find_screen_date(ind, anchors)
@@ -73,7 +74,7 @@ def run_screen(ind, config):
     m_adv  = adv_row.ge(MIN_ADV)
     m_vol  = vol_row.le(MAX_VOLATILITY)
     m_rsi  = rsi_row.ge(RSI_THRESHOLD)
-    m_sma  = close_row.gt(sma_s_row)
+    m_sma  = close_row.ge(sma_s_row.mul(1 - SMA_BUFFER))
     m_high = close_row.ge(high52_row.mul(1 - MAX_FROM_HIGH))
     m_cmf  = cmf_row.ge(CMF_THRESHOLD)
     passed = valid & m_mcap & m_adv & m_vol & m_rsi & m_sma & m_high & m_cmf
