@@ -330,19 +330,22 @@ async function loadAll() {
 // ── Top 15 + All Passing + Delta ──────────────────────────────────────────────
 let latestTop15 = [];
 let latestPassing = [];
+let latestUniverse = [];
 let currentPortfolio = [];
 
 async function loadLatestScreen() {
   try {
-    const rows = await sb('screen_runs?select=run_date,top15,all_passing,filters,triggered_at&order=id.desc&limit=1');
+    const rows = await sb('screen_runs?select=run_date,top15,all_passing,all_universe,filters,triggered_at&order=id.desc&limit=1');
     if (!rows || !rows.length) {
       document.getElementById('panel-top15').innerHTML   = '<div class="empty">No screen runs yet. Click ▶ Run Screen.</div>';
       document.getElementById('panel-passing').innerHTML = '<div class="empty">No screen runs yet.</div>';
+      document.getElementById('panel-universe').innerHTML = '<div class="empty">No screen runs yet.</div>';
       return;
     }
     const run = rows[0];
-    latestTop15   = run.top15   || [];
-    latestPassing = run.all_passing || [];
+    latestTop15    = run.top15        || [];
+    latestPassing  = run.all_passing  || [];
+    latestUniverse = run.all_universe || [];
 
     renderTop15(run.run_date, run.filters);
     renderPassing(run.run_date);
@@ -429,40 +432,67 @@ function renderPassing(runDate) {
 
 function renderUniverse(runDate, filters) {
   const panel = document.getElementById('panel-universe');
-  if (!latestPassing.length) {
-    panel.innerHTML = '<div class="empty">No data yet — run a screen first.</div>';
+  if (!latestUniverse.length) {
+    // Fallback: if old run (no all_universe yet), show a helpful message
+    panel.innerHTML = '<div class="empty">Full universe data not available — run a new screen to populate this tab.</div>';
     return;
   }
-  // Sort ALL passing stocks by rank_score descending (they're already ranked
-  // but re-sort defensively to guarantee order)
-  const sorted = [...latestPassing].sort((a, b) => (b.rank_score ?? 0) - (a.rank_score ?? 0));
   const topN = filters?.portfolio_size || 15;
   const topSet = new Set(latestTop15.map(r => r.ticker));
+  const passingSet = new Set(latestPassing.map(r => r.ticker));
+
+  // Sort by rank_score desc (already sorted from backend, but defensive)
+  const sorted = [...latestUniverse].sort((a, b) => (b.rank_score ?? -Infinity) - (a.rank_score ?? -Infinity));
+
+  const filterCols = ['p_mcap','p_adv','p_vol','p_rsi','p_sma','p_high','p_cmf'];
+  const filterLabels = ['MCap','ADV','Vol','RSI','SMA','52W High','CMF'];
+
+  const tick = '<span style="color:var(--green)">✓</span>';
+  const cross = '<span style="color:var(--red)">✗</span>';
 
   let html = `<div class="alert info" style="margin-bottom:16px">
-    ${sorted.length} stocks passed all filters on ${runDate} &nbsp;·&nbsp;
+    ${sorted.length} stocks with valid data on ${runDate} &nbsp;·&nbsp;
+    <strong>${latestPassing.length}</strong> passed all filters &nbsp;·&nbsp;
     Top <strong>${topN}</strong> highlighted
   </div>
   <div class="tbl-wrap"><table>
   <thead><tr>
     <th>#</th><th>Ticker</th><th>Price</th><th>Rank Score</th>
     <th>RSI</th><th>Vol %</th><th>ADV ₹Cr</th><th>CMF</th><th>MCap ₹Cr</th><th>% from 52W High</th>
+    ${filterLabels.map(l => `<th>${l}</th>`).join('')}
   </tr></thead><tbody>`;
 
   sorted.forEach((r, i) => {
-    const inTop = topSet.has(r.ticker);
-    const rowStyle = inTop ? 'background:rgba(62,207,142,.07);' : '';
+    const inTopN    = topSet.has(r.ticker);
+    const inPassing = passingSet.has(r.ticker);
+    let rowStyle = '';
+    let tickerStyle = '';
+    let tickerSuffix = '';
+    if (inTopN) {
+      rowStyle = 'background:rgba(62,207,142,.07);';
+      tickerStyle = 'color:var(--green);';
+      tickerSuffix = ' ★';
+    } else if (inPassing) {
+      rowStyle = 'background:rgba(91,143,255,.05);';
+      tickerStyle = 'color:var(--accent);';
+    }
+
+    const filterCells = filterCols.map(col =>
+      `<td style="text-align:center">${r[col] ? tick : cross}</td>`
+    ).join('');
+
     html += `<tr style="${rowStyle}">
       <td class="rank">${i + 1}</td>
-      <td class="ticker-cell" style="${inTop ? 'color:var(--green)' : ''}">${r.ticker}${inTop ? ' ★' : ''}</td>
+      <td class="ticker-cell" style="${tickerStyle}">${r.ticker}${tickerSuffix}</td>
       <td>₹${fmtNum(r.price)}</td>
-      <td>${fmtNum(r.rank_score, 4)}</td>
+      <td>${r.rank_score != null ? fmtNum(r.rank_score, 4) : '—'}</td>
       <td>${fmtNum(r.rsi, 1)}</td>
       <td>${fmtNum(r.volatility_pct, 1)}%</td>
       <td>${fmtNum(r.adv_m, 1)}</td>
       <td>${fmtNum(r.cmf, 3)}</td>
       <td>${fmtNum(r.mcap_m, 0)}</td>
       <td>${fmtNum(r.pct_from_high, 1)}%</td>
+      ${filterCells}
     </tr>`;
   });
   html += '</tbody></table></div>';
