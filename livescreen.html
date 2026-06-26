@@ -53,9 +53,9 @@
   .panel.active { display: block; }
 
   /* ── Tables ── */
-  .tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  .tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 160px); border-radius: 10px; border: 1px solid var(--border); }
   table { width: 100%; border-collapse: collapse; font-size: var(--small); }
-  th { background: var(--surface2); padding: 10px 12px; text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+  th { background: var(--surface2); padding: 10px 12px; text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
   td { padding: 9px 12px; border-top: 1px solid var(--border); white-space: nowrap; }
   tr:hover td { background: var(--surface2); }
   .rank { color: var(--muted); font-size: 11px; }
