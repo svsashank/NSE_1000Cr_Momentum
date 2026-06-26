@@ -583,9 +583,25 @@ async function loadLatestScreen() {
     renderDelta();
 
     // Fetch all_universe separately so it can never break top15/passing
+    // Cache in sessionStorage keyed by run id — avoids re-fetching 850KB on every refresh
     try {
-      const uRows = await sb('screen_runs?select=all_universe&id=eq.' + run.id);
-      latestUniverse = (uRows && uRows[0] && uRows[0].all_universe) || [];
+      const cacheKey = 'all_universe_' + run.id;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        latestUniverse = JSON.parse(cached);
+        console.log('all_universe: loaded from cache (run ' + run.id + ')');
+      } else {
+        const uRows = await sb('screen_runs?select=all_universe&id=eq.' + run.id);
+        latestUniverse = (uRows && uRows[0] && uRows[0].all_universe) || [];
+        if (latestUniverse.length) {
+          // Evict any previous run's cache first
+          Object.keys(sessionStorage)
+            .filter(k => k.startsWith('all_universe_') && k !== cacheKey)
+            .forEach(k => sessionStorage.removeItem(k));
+          sessionStorage.setItem(cacheKey, JSON.stringify(latestUniverse));
+          console.log('all_universe: fetched and cached (run ' + run.id + ', ' + latestUniverse.length + ' rows)');
+        }
+      }
     } catch(_) {
       latestUniverse = [];
     }
