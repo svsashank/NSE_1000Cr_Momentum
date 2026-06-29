@@ -114,6 +114,10 @@ def run_screen(ind, config):
     for k, v in rejections.items():
         print(f'   {k:<12}: {v}')
 
+    # ── Tickers with insufficient data (valid=False: NaN close/SMA21/SMA200) ─────
+    # Captured here so the GUI can surface them rather than silently dropping them.
+    no_data_tickers = sorted(valid[~valid].index.tolist())
+
     # ── Full universe: all valid tickers with indicators + per-filter pass flags ──
     all_tickers = valid[valid].index.tolist()
 
@@ -177,7 +181,7 @@ def run_screen(ind, config):
     universe_df.index += 1
 
     if not passed.any() and not any(is_near_miss_map.values()):
-        return pd.DataFrame(), pd.DataFrame(), universe_df, rejections, screen_date
+        return pd.DataFrame(), pd.DataFrame(), universe_df, pd.DataFrame(), rejections, screen_date, no_data_tickers
 
     # ── Build Top N and Hold Zone: walk universe by rank ─────────────────────────
     # Include each stock if strict pass OR near-miss (within top 50 by rank).
@@ -225,4 +229,4 @@ def run_screen(ind, config):
     print(f'\n🏆 TOP {len(top15)}:')
     print(top15[['ticker', 'price', 'rank_score', 'rsi', 'adv_m', 'cmf', 'is_near_miss', 'near_miss_filter']].to_string())
 
-    return top15, all_passing, universe_df, hold_zone_df, rejections, screen_date
+    return top15, all_passing, universe_df, hold_zone_df, rejections, screen_date, no_data_tickers
