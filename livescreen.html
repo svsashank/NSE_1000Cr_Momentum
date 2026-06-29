@@ -603,6 +603,9 @@ function renderUniverse(runDate, filters) {
   panel.innerHTML = html;
 }
 
+// ── Rebalance State ───────────────────────────────────────────────────────────
+let rebalState = null; // persists across re-renders so toggles survive
+
 function renderDelta() {
   if (!latestTop15.length) {
     document.getElementById('panel-delta').innerHTML = '<div class="empty">Run a screen first.</div>';
@@ -613,102 +616,365 @@ function renderDelta() {
     return;
   }
 
-  // Normalise tickers: strip .NS / .BO suffix for comparison
-  const norm = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
+  const norm     = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
+  const LIQUIDCASE = 'LIQUIDCASE';
 
-  // Build lookup maps keyed by normalised ticker
-  // Top 15 = buy targets; Hold zone (top 25, same near-miss rules) = hold/sell boundary
-  const targetMap  = {};
-  latestTop15.forEach(r => { targetMap[norm(r.ticker)] = r; });
-  const holdZoneMap = {};
-  (latestHoldZone.length ? latestHoldZone : latestTop15).forEach(r => { holdZoneMap[norm(r.ticker)] = r; });
+  // Price lookup: universe has all tickers with prices
+  const priceMap = {};
+  latestUniverse.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
+  latestTop15.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
+  latestPassing.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
+
+  // Rank score lookup
+  const rankMap = {};
+  latestUniverse.forEach(r => { rankMap[norm(r.ticker)] = r.rank_score; });
+
+  // Hold zone and target maps
+  const holdZoneSet = new Set(
+    (latestHoldZone.length ? latestHoldZone : latestTop15).map(r => norm(r.ticker))
+  );
+  const top15Set = new Set(latestTop15.map(r => norm(r.ticker)));
+
+  // Portfolio map (excluding LIQUIDCASE — handled separately)
   const portfolioMap = {};
-  currentPortfolio.forEach(r => { portfolioMap[norm(r.ticker)] = r; });
+  let liquidcaseHolding = null;
+  currentPortfolio.forEach(r => {
+    const n = norm(r.ticker);
+    if (n === LIQUIDCASE) { liquidcaseHolding = r; }
+    else { portfolioMap[n] = r; }
+  });
 
-  const targetKeys  = Object.keys(targetMap);
-  const currentKeys = Object.keys(portfolioMap);
+  // Promotion candidates: universe beyond top 15, same eligibility (passes_all or is_near_miss in top 50)
+  // already sorted by rank_score desc in latestUniverse
+  const promotionPool = latestUniverse
+    .filter(r => {
+      const n = norm(r.ticker);
+      return !top15Set.has(n) && !portfolioMap[n] && (r.passes_all || r.is_near_miss);
+    });
 
-  // Buy  = in top 15 AND not in portfolio
-  // Hold = in portfolio AND in hold zone (top 25)
-  // Sell = in portfolio AND NOT in hold zone
-  const buy  = targetKeys.filter(t => !portfolioMap[t]);
-  const hold = currentKeys.filter(t =>  holdZoneMap[t]);
-  const sell = currentKeys.filter(t => !holdZoneMap[t]);
+  // Initial classification
+  const initialBuys  = latestTop15.map(r => norm(r.ticker)).filter(t => !portfolioMap[t]);
+  const initialHolds = Object.keys(portfolioMap).filter(t => holdZoneSet.has(t));
+  const initialSells = Object.keys(portfolioMap).filter(t => !holdZoneSet.has(t));
 
-  // Rank lookup for sell rows (use latestPassing for price if not in top15)
+  // Init or restore state
+  if (!rebalState ||
+      rebalState.runId !== (latestTop15[0]?.ticker + latestTop15.length)) {
+    rebalState = {
+      runId: latestTop15[0]?.ticker + latestTop15.length,
+      actions: {},       // norm ticker → 'buy'|'hold'|'sell'|'skip'
+      buyList: [...initialBuys],   // ordered buy list (skips replaced by promotions)
+      phase: 1
+    };
+    initialBuys.forEach(t  => { rebalState.actions[t] = 'buy'; });
+    initialHolds.forEach(t => { rebalState.actions[t] = 'hold'; });
+    initialSells.forEach(t => { rebalState.actions[t] = 'sell'; });
+  }
+
+  renderDeltaPhase1();
+}
+
+function toggleAction(ticker) {
+  const a = rebalState.actions[ticker];
+  const norm = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
+  const n = norm(ticker);
+
+  if (a === 'sell') {
+    rebalState.actions[n] = 'hold';
+  } else if (a === 'hold') {
+    rebalState.actions[n] = 'sell';
+  } else if (a === 'buy') {
+    // Skip this buy — promote next eligible from pool
+    rebalState.actions[n] = 'skip';
+    const currentBuySkipSet = new Set(
+      Object.entries(rebalState.actions)
+        .filter(([,v]) => v === 'skip' || v === 'buy')
+        .map(([k]) => k)
+    );
+    // Find next promotion candidate not already in any list
+    const allInState = new Set(Object.keys(rebalState.actions));
+    const next = latestUniverse.find(r => {
+      const rn = norm(r.ticker);
+      return !allInState.has(rn) && (r.passes_all || r.is_near_miss);
+    });
+    if (next) {
+      const nn = norm(next.ticker);
+      rebalState.actions[nn] = 'buy';
+      rebalState.buyList = rebalState.buyList.map(t => t === n ? nn : t);
+    } else {
+      rebalState.buyList = rebalState.buyList.filter(t => t !== n);
+    }
+  }
+  renderDeltaPhase1();
+}
+
+function renderDeltaPhase1() {
+  const norm     = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
+  const LIQUIDCASE = 'LIQUIDCASE';
+
+  const priceMap = {};
+  latestUniverse.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
+  latestTop15.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
+  latestPassing.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
+  const rankMap = {};
+  latestUniverse.forEach(r => { rankMap[norm(r.ticker)] = r.rank_score; });
+
+  const portfolioMap = {};
+  let liquidcaseHolding = null;
+  currentPortfolio.forEach(r => {
+    const n = norm(r.ticker);
+    if (n === LIQUIDCASE) liquidcaseHolding = r;
+    else portfolioMap[n] = r;
+  });
+
+  // Compute cash pool: sells + LIQUIDCASE
+  let cashPool = 0;
+  const liquidPrice = priceMap[LIQUIDCASE] ?? liquidcaseHolding?.avg_cost ?? 0;
+  const liquidShares = liquidcaseHolding?.shares ?? 0;
+  const liquidVal = liquidPrice * liquidShares;
+  cashPool += liquidVal;
+
+  Object.entries(rebalState.actions).forEach(([t, action]) => {
+    if (action === 'sell') {
+      const port = portfolioMap[t];
+      const price = priceMap[t] ?? 0;
+      cashPool += (port?.shares ?? 0) * price;
+    }
+  });
+
+  const activeBuys = Object.entries(rebalState.actions)
+    .filter(([,v]) => v === 'buy').map(([k]) => k);
+  const perBuyValue = activeBuys.length ? cashPool / activeBuys.length : 0;
+
+  // Portfolio P&L summary
   const allSnap = {};
   [...latestTop15, ...latestPassing].forEach(r => { allSnap[norm(r.ticker)] = r; });
+  const totalCurrVal = currentPortfolio.reduce((sum, r) => {
+    const n = norm(r.ticker);
+    const p = priceMap[n] ?? r.avg_cost ?? 0;
+    return sum + (p * (r.shares ?? 0));
+  }, 0);
+  const totalCostVal = currentPortfolio.reduce((sum, r) =>
+    sum + ((r.avg_cost ?? 0) * (r.shares ?? 0)), 0);
+  const totalPnl = totalCurrVal - totalCostVal;
+  const totalPnlPct = totalCostVal ? (totalPnl / totalCostVal * 100) : 0;
+  const pnlColor = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
 
-  const section = (label, tickers, cls) => {
-    if (!tickers.length) return '';
-    return tickers.map(t => {
-      const snap = allSnap[t];
-      const port = portfolioMap[t];
-      const price      = snap?.price ?? null;
-      const rankScore  = snap?.rank_score ?? null;
-      const shares     = port?.shares ?? null;
-      const avgCost    = port?.avg_cost ?? null;
-      const currVal    = (price && shares) ? price * shares : null;
-      const costVal    = (avgCost && shares) ? avgCost * shares : null;
-      const pnl        = (currVal && costVal) ? currVal - costVal : null;
-      const pnlPct     = (pnl && costVal) ? (pnl / costVal * 100) : null;
-      const pnlColor   = pnl === null ? '' : pnl >= 0 ? 'color:var(--green)' : 'color:var(--red)';
-      const displayTicker = snap?.ticker ?? (port?.ticker ?? t);
+  const buys  = Object.entries(rebalState.actions).filter(([,v]) => v === 'buy').map(([k]) => k);
+  const holds = Object.entries(rebalState.actions).filter(([,v]) => v === 'hold').map(([k]) => k);
+  const sells = Object.entries(rebalState.actions).filter(([,v]) => v === 'sell').map(([k]) => k);
 
-      // For buy: show rank + price. For hold: rank + price + shares + P&L. For sell: price + shares + P&L.
-      const sharesCell  = shares !== null ? shares : '—';
-      const avgCell     = avgCost !== null ? '₹'+fmtNum(avgCost) : '—';
-      const currValCell = currVal !== null ? '₹'+fmtNum(currVal, 0) : '—';
-      const pnlCell     = pnl !== null
-        ? `<span style="${pnlColor}">${pnl >= 0 ? '+' : ''}₹${fmtNum(Math.abs(pnl),0)} (${pnlPct >= 0 ? '+' : ''}${fmtNum(pnlPct,1)}%)</span>`
-        : '—';
-
-      return `<tr>
-        <td><span class="badge ${cls}">${label}</span></td>
-        <td class="ticker-cell">${displayTicker}</td>
-        <td>${price !== null ? '₹'+fmtNum(price) : '—'}</td>
-        <td>${rankScore !== null ? fmtNum(rankScore,4) : '—'}</td>
-        <td>${sharesCell}</td>
-        <td>${avgCell}</td>
-        <td>${currValCell}</td>
-        <td>${pnlCell}</td>
-      </tr>`;
-    }).join('');
+  const actionBadge = (t, action) => {
+    const colors = { buy: 'var(--green)', hold: 'var(--accent)', sell: 'var(--red)', skip: 'var(--muted)' };
+    const next = { sell: 'hold', hold: 'sell', buy: 'skip→next', skip: '' };
+    const tip = next[action] ? `Click to → ${next[action]}` : '';
+    return `<span class="badge ${action}" style="cursor:pointer;user-select:none" onclick="toggleAction('${t}')" title="${tip}">${action}</span>`;
   };
 
-  const totalCurrVal = currentPortfolio.reduce((sum, r) => {
-    const snap = allSnap[norm(r.ticker)];
-    return sum + ((snap?.price ?? 0) * (r.shares ?? 0));
-  }, 0);
-  const totalCostVal = currentPortfolio.reduce((sum, r) => {
-    return sum + ((r.avg_cost ?? 0) * (r.shares ?? 0));
-  }, 0);
-  const totalPnl    = totalCurrVal - totalCostVal;
-  const totalPnlPct = totalCostVal ? (totalPnl / totalCostVal * 100) : 0;
-  const pnlColor    = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const row = (t, action) => {
+    const port  = portfolioMap[t];
+    const price = priceMap[t] ?? null;
+    const snap  = allSnap[t];
+    const displayTicker = snap?.ticker ?? port?.ticker ?? t;
+    const shares   = port?.shares ?? null;
+    const avgCost  = port?.avg_cost ?? null;
+    const currVal  = price && shares ? price * shares : null;
+    const costVal  = avgCost && shares ? avgCost * shares : null;
+    const pnl      = currVal && costVal ? currVal - costVal : null;
+    const pnlPct   = pnl && costVal ? pnl / costVal * 100 : null;
+    const pnlStyle = pnl === null ? '' : pnl >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+    const rank     = rankMap[t] ?? snap?.rank_score ?? null;
+    // estimated buy qty preview
+    const estQty   = action === 'buy' && price ? Math.round(perBuyValue / price) : null;
+    const estVal   = estQty && price ? estQty * price : null;
+
+    return `<tr>
+      <td>${actionBadge(t, action)}</td>
+      <td class="ticker-cell">${displayTicker}</td>
+      <td>${price !== null ? '₹'+fmtNum(price) : '—'}</td>
+      <td>${rank !== null ? fmtNum(rank,4) : '—'}</td>
+      <td>${shares ?? '—'}</td>
+      <td>${avgCost ? '₹'+fmtNum(avgCost) : '—'}</td>
+      <td>${currVal ? '₹'+fmtNum(currVal,0) : (estVal ? '<span style="color:var(--muted)">~₹'+fmtNum(estVal,0)+'</span>' : '—')}</td>
+      <td>${pnl !== null ? `<span style="${pnlStyle}">${pnl>=0?'+':''}₹${fmtNum(Math.abs(pnl),0)} (${pnlPct>=0?'+':''}${fmtNum(pnlPct,1)}%)</span>` : '—'}</td>
+    </tr>`;
+  };
 
   let html = `
-  <div class="alert info" style="margin-bottom:12px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">
-    <span>Buy: <strong>${buy.length}</strong> &nbsp;·&nbsp; Sell: <strong>${sell.length}</strong> &nbsp;·&nbsp; Hold: <strong>${hold.length}</strong></span>
+  <div class="alert info" style="margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+    <span>
+      <strong style="color:var(--green)">${buys.length} Buy</strong> &nbsp;·&nbsp;
+      <strong style="color:var(--accent)">${holds.length} Hold</strong> &nbsp;·&nbsp;
+      <strong style="color:var(--red)">${sells.length} Sell</strong>
+    </span>
+    <span style="font-size:12px;color:var(--muted)">
+      Cash pool (sells + LIQUIDCASE): <strong style="color:var(--text)">₹${fmtNum(cashPool,0)}</strong>
+      &nbsp;·&nbsp; Per buy: <strong style="color:var(--text)">₹${fmtNum(perBuyValue,0)}</strong>
+    </span>
     <span style="margin-left:auto;font-size:12px;color:var(--muted)">
-      Portfolio value: <strong style="color:var(--text)">₹${fmtNum(totalCurrVal,0)}</strong>
-      &nbsp;·&nbsp; Cost: <strong style="color:var(--text)">₹${fmtNum(totalCostVal,0)}</strong>
-      &nbsp;·&nbsp; P&L: <strong style="color:${pnlColor}">${totalPnl>=0?'+':''}₹${fmtNum(Math.abs(totalPnl),0)} (${totalPnlPct>=0?'+':''}${fmtNum(totalPnlPct,1)}%)</strong>
+      Portfolio: <strong style="color:var(--text)">₹${fmtNum(totalCurrVal,0)}</strong>
+      &nbsp;·&nbsp; P&amp;L: <strong style="color:${pnlColor}">${totalPnl>=0?'+':''}₹${fmtNum(Math.abs(totalPnl),0)} (${totalPnlPct>=0?'+':''}${fmtNum(totalPnlPct,1)}%)</strong>
     </span>
   </div>
-  <div class="tbl-wrap"><table>
+  <div class="tbl-wrap" style="max-height:calc(100vh - 280px)"><table>
   <thead><tr>
-    <th>Action</th><th>Ticker</th><th>Price</th><th>Rank Score</th>
-    <th>Shares</th><th>Avg Cost</th><th>Curr Value</th><th>P&amp;L</th>
-  </tr></thead>
-  <tbody>
-  ${section('buy',  buy,  'buy')}
-  ${section('hold', hold, 'hold')}
-  ${section('sell', sell, 'sell')}
-  </tbody></table></div>`;
+    <th>Action <span style="font-size:10px;color:var(--muted)">(click to toggle)</span></th>
+    <th>Ticker</th><th>Price</th><th>Rank</th>
+    <th>Shares</th><th>Avg Cost</th><th>Value / Est. Buy</th><th>P&amp;L</th>
+  </tr></thead><tbody>
+  ${buys.map(t => row(t, 'buy')).join('')}
+  ${holds.map(t => row(t, 'hold')).join('')}
+  ${sells.map(t => row(t, 'sell')).join('')}
+  </tbody></table></div>
+  <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
+    <button class="btn-sm" onclick="rebalState=null;renderDelta()" style="color:var(--muted)">↺ Reset</button>
+    <button onclick="renderDeltaPhase2()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto">
+      Confirm &amp; Generate Plan →
+    </button>
+  </div>`;
 
   document.getElementById('panel-delta').innerHTML = html;
 }
+
+function renderDeltaPhase2() {
+  const norm = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
+  const LIQUIDCASE = 'LIQUIDCASE';
+
+  const priceMap = {};
+  latestUniverse.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
+  latestTop15.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
+  latestPassing.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
+
+  const portfolioMap = {};
+  let liquidcaseHolding = null;
+  currentPortfolio.forEach(r => {
+    const n = norm(r.ticker);
+    if (n === LIQUIDCASE) liquidcaseHolding = r;
+    else portfolioMap[n] = r;
+  });
+
+  const liquidPrice  = priceMap[LIQUIDCASE] ?? liquidcaseHolding?.avg_cost ?? 0;
+  const liquidShares = liquidcaseHolding?.shares ?? 0;
+  const liquidVal    = liquidPrice * liquidShares;
+
+  let cashPool = liquidVal;
+  const sells = Object.entries(rebalState.actions).filter(([,v]) => v === 'sell').map(([k]) => k);
+  const holds = Object.entries(rebalState.actions).filter(([,v]) => v === 'hold').map(([k]) => k);
+  const buys  = Object.entries(rebalState.actions).filter(([,v]) => v === 'buy').map(([k]) => k);
+
+  sells.forEach(t => {
+    const port = portfolioMap[t];
+    cashPool += (port?.shares ?? 0) * (priceMap[t] ?? 0);
+  });
+
+  const perBuyValue = buys.length ? cashPool / buys.length : cashPool;
+
+  // Compute buy quantities
+  let totalSpent = 0;
+  const buyOrders = buys.map(t => {
+    const price = priceMap[t] ?? 0;
+    const qty   = price ? Math.round(perBuyValue / price) : 0;
+    const spent = qty * price;
+    totalSpent += spent;
+    return { t, price, qty, spent };
+  });
+
+  const residual  = cashPool - totalSpent;
+  const liquidBuyQty = liquidPrice ? Math.round(residual / liquidPrice) : 0;
+  const liquidBuyVal = liquidBuyQty * liquidPrice;
+  const finalResidual = residual - liquidBuyVal;
+
+  // Sell rows
+  const sellRows = sells.map(t => {
+    const port  = portfolioMap[t];
+    const price = priceMap[t] ?? 0;
+    const val   = (port?.shares ?? 0) * price;
+    const dispT = port?.ticker ?? t;
+    return `<tr style="background:rgba(255,102,102,.06)">
+      <td><span class="badge sell">SELL</span></td>
+      <td class="ticker-cell">${dispT}</td>
+      <td>₹${fmtNum(price)}</td>
+      <td>${port?.shares ?? '—'}</td>
+      <td><strong>₹${fmtNum(val,0)}</strong></td>
+      <td style="color:var(--muted)">Liquidate fully</td>
+    </tr>`;
+  }).join('');
+
+  // LIQUIDCASE liquidation row
+  const liquidSellRow = liquidShares > 0 ? `<tr style="background:rgba(255,102,102,.06)">
+    <td><span class="badge sell">SELL</span></td>
+    <td class="ticker-cell">LIQUIDCASE</td>
+    <td>₹${fmtNum(liquidPrice)}</td>
+    <td>${liquidShares}</td>
+    <td><strong>₹${fmtNum(liquidVal,0)}</strong></td>
+    <td style="color:var(--muted)">Always liquidated</td>
+  </tr>` : '';
+
+  // Hold rows
+  const holdRows = holds.map(t => {
+    const port  = portfolioMap[t];
+    const price = priceMap[t] ?? 0;
+    const val   = (port?.shares ?? 0) * price;
+    const dispT = port?.ticker ?? t;
+    return `<tr style="background:rgba(91,143,255,.05)">
+      <td><span class="badge hold">HOLD</span></td>
+      <td class="ticker-cell">${dispT}</td>
+      <td>₹${fmtNum(price)}</td>
+      <td>${port?.shares ?? '—'}</td>
+      <td>₹${fmtNum(val,0)}</td>
+      <td style="color:var(--muted)">No action</td>
+    </tr>`;
+  }).join('');
+
+  // Buy rows
+  const buyRows = buyOrders.map(({t, price, qty, spent}) => {
+    const snap  = [...latestTop15, ...latestUniverse].find(r => norm(r.ticker) === t);
+    const dispT = snap?.ticker ?? t;
+    return `<tr style="background:rgba(62,207,142,.07)">
+      <td><span class="badge buy">BUY</span></td>
+      <td class="ticker-cell">${dispT}</td>
+      <td>₹${fmtNum(price)}</td>
+      <td><strong>${qty}</strong></td>
+      <td><strong>₹${fmtNum(spent,0)}</strong></td>
+      <td style="color:var(--muted)">~₹${fmtNum(perBuyValue,0)} target</td>
+    </tr>`;
+  }).join('');
+
+  // LIQUIDCASE buy row (residual)
+  const liquidBuyRow = liquidBuyQty > 0 ? `<tr style="background:rgba(62,207,142,.04)">
+    <td><span class="badge buy">BUY</span></td>
+    <td class="ticker-cell">LIQUIDCASE</td>
+    <td>₹${fmtNum(liquidPrice)}</td>
+    <td><strong>${liquidBuyQty}</strong></td>
+    <td><strong>₹${fmtNum(liquidBuyVal,0)}</strong></td>
+    <td style="color:var(--muted)">Residual cash parking</td>
+  </tr>` : '';
+
+  let html = `
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+    <button class="btn-sm" onclick="renderDeltaPhase1()">← Back to Phase 1</button>
+    <span style="font-size:15px;font-weight:600;color:var(--text)">Execution Plan</span>
+    <span style="margin-left:auto;font-size:12px;color:var(--muted)">
+      Cash pool: <strong style="color:var(--text)">₹${fmtNum(cashPool,0)}</strong>
+      &nbsp;·&nbsp; Spent: <strong style="color:var(--text)">₹${fmtNum(totalSpent+liquidBuyVal,0)}</strong>
+      &nbsp;·&nbsp; Undeployed: <strong style="color:var(--yellow)">₹${fmtNum(finalResidual,0)}</strong>
+    </span>
+  </div>
+  <div class="tbl-wrap" style="max-height:calc(100vh - 240px)"><table>
+  <thead><tr>
+    <th>Action</th><th>Ticker</th><th>Price</th><th>Qty</th><th>Value</th><th>Note</th>
+  </tr></thead><tbody>
+  ${sellRows}
+  ${liquidSellRow}
+  ${holdRows}
+  ${buyRows}
+  ${liquidBuyRow}
+  </tbody></table></div>
+  ${finalResidual > 100 ? `<div class="alert warn" style="margin-top:12px">₹${fmtNum(finalResidual,0)} undeployed after rounding — add to LIQUIDCASE manually or leave as cash.</div>` : ''}`;
+
+  document.getElementById('panel-delta').innerHTML = html;
+}
+
 
 // ── Portfolio CRUD ─────────────────────────────────────────────────────────────
 async function loadPortfolio() {
