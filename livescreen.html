@@ -399,13 +399,14 @@ async function loadAll() {
 // ── Top 15 + All Passing + Delta ──────────────────────────────────────────────
 let latestTop15 = [];
 let latestPassing = [];
+let latestHoldZone = [];
 let latestUniverse = [];
 let currentPortfolio = [];
 
 async function loadLatestScreen() {
   try {
     // Fetch core data — top15 + all_passing in isolation from all_universe
-    const rows = await sb('screen_runs?select=id,run_date,top15,all_passing,filters,triggered_at&order=id.desc&limit=1');
+    const rows = await sb('screen_runs?select=id,run_date,top15,all_passing,hold_zone,filters,triggered_at&order=id.desc&limit=1');
     if (!rows || !rows.length) {
       document.getElementById('panel-top15').innerHTML    = '<div class="empty">No screen runs yet. Click ▶ Run Screen.</div>';
       document.getElementById('panel-passing').innerHTML  = '<div class="empty">No screen runs yet.</div>';
@@ -413,9 +414,10 @@ async function loadLatestScreen() {
       return;
     }
     const run = rows[0];
-    latestTop15   = run.top15       || [];
-    latestPassing = run.all_passing || [];
-    scrScreenDate = run.run_date    || '';
+    latestTop15    = run.top15       || [];
+    latestPassing  = run.all_passing || [];
+    latestHoldZone = run.hold_zone   || [];
+    scrScreenDate  = run.run_date    || '';
 
     renderTop15(run.run_date, run.filters);
     renderPassing(run.run_date);
@@ -615,17 +617,23 @@ function renderDelta() {
   const norm = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
 
   // Build lookup maps keyed by normalised ticker
+  // Top 15 = buy targets; Hold zone (top 25, same near-miss rules) = hold/sell boundary
   const targetMap  = {};
   latestTop15.forEach(r => { targetMap[norm(r.ticker)] = r; });
+  const holdZoneMap = {};
+  (latestHoldZone.length ? latestHoldZone : latestTop15).forEach(r => { holdZoneMap[norm(r.ticker)] = r; });
   const portfolioMap = {};
   currentPortfolio.forEach(r => { portfolioMap[norm(r.ticker)] = r; });
 
   const targetKeys  = Object.keys(targetMap);
   const currentKeys = Object.keys(portfolioMap);
 
+  // Buy  = in top 15 AND not in portfolio
+  // Hold = in portfolio AND in hold zone (top 25)
+  // Sell = in portfolio AND NOT in hold zone
   const buy  = targetKeys.filter(t => !portfolioMap[t]);
-  const sell = currentKeys.filter(t => !targetMap[t]);
-  const hold = targetKeys.filter(t =>  portfolioMap[t]);
+  const hold = currentKeys.filter(t =>  holdZoneMap[t]);
+  const sell = currentKeys.filter(t => !holdZoneMap[t]);
 
   // Rank lookup for sell rows (use latestPassing for price if not in top15)
   const allSnap = {};
