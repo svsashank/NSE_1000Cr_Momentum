@@ -1,12 +1,15 @@
 """
-refresh_history.py — Fetch multi-year OHLCV for the full NSE universe and
+refresh_history.py -- Fetch multi-year OHLCV for the full NSE universe and
 store it in Supabase Storage (parquet), merging with existing stored history.
 
-Run periodically (e.g. monthly) via GitHub Actions. The backtest engine
-reads from this stored history via core/history_store.
+Also refreshes nse_universe.json first (from NSE EQUITY_L.csv) so the
+monthly history pull always covers the current ticker set, including any
+new listings or re-rated stocks that crossed the MCap threshold.
+
+Run periodically (monthly) via GitHub Actions.
 """
 
-import os, json, time, warnings
+import os, json, time, sys, subprocess, warnings
 from datetime import datetime
 from supabase import create_client
 
@@ -30,6 +33,19 @@ UNIVERSE_FILE = os.path.join(os.path.dirname(__file__), 'nse_universe.json')
 HISTORY_YEARS = int(os.environ.get('HISTORY_YEARS', '7'))
 
 
+def refresh_universe():
+    """Refresh nse_universe.json from NSE's live listing before fetching history."""
+    result = subprocess.run([sys.executable, "refresh_universe.py"],
+                            capture_output=True, text=True)
+    print(result.stdout)
+    if result.returncode != 0:
+        print(f"⚠ Universe refresh exited {result.returncode} — using existing file")
+        if result.stderr:
+            print(result.stderr[:500])
+    else:
+        print("✅ Universe refresh complete")
+
+
 def main():
     t0 = time.time()
     print('='*60)
@@ -37,6 +53,10 @@ def main():
     print(f'  Universe: {UNIVERSE_NAME}')
     print(f'  {datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}')
     print('='*60)
+
+    # Step 0: Refresh universe (runs before history fetch so new tickers get history too)
+    print('\n⏳ Step 0: Refreshing NSE universe...')
+    refresh_universe()
 
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -54,7 +74,7 @@ def main():
         print(f'   Existing: {existing["Close"].shape[1]} tickers, '
               f'{existing["Close"].index[0].date()} -> {existing["Close"].index[-1].date()}')
     else:
-        print('   No existing history — first run')
+        print('   No existing history -- first run')
 
     print('\nMerging...')
     merged = merge_history(existing, fresh)
