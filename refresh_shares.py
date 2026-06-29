@@ -12,7 +12,7 @@ yf.Ticker() loop that previously took ~15 min per run.
 Run via a separate weekly workflow (shares_refresh.yml).
 """
 
-import json, time, os, sys
+import json, time, os, sys, subprocess
 import yfinance as yf
 
 UNIVERSE_FILE = os.path.join(os.path.dirname(__file__), 'nse_universe.json')
@@ -24,21 +24,26 @@ def refresh_universe():
     Refresh nse_universe.json from NSE EQUITY_L.csv.
     Called first so the shares fetch always covers the latest ticker set.
     Falls back to existing file if the live fetch fails.
+    Also stages nse_universe.json for the workflow's git commit.
     """
-    import importlib.util, subprocess
-    spec = importlib.util.spec_from_file_location(
-        "refresh_universe",
-        os.path.join(os.path.dirname(__file__), "refresh_universe.py")
+    result = subprocess.run(
+        [sys.executable, "refresh_universe.py"],
+        capture_output=True, text=True
     )
-    mod = importlib.util.load_from_spec(spec) if hasattr(importlib.util, "load_from_spec") else None
-    # Simpler: just call as subprocess so it runs in same env
-    result = subprocess.run([sys.executable, "refresh_universe.py"], capture_output=True, text=True)
     print(result.stdout)
     if result.returncode != 0:
-        print(f"⚠ Universe refresh returned non-zero: {result.returncode}")
-        print(result.stderr[:500] if result.stderr else "")
+        print(f"Warning: Universe refresh returned {result.returncode}")
+        if result.stderr:
+            print(result.stderr[:500])
     else:
-        print("✅ Universe refresh complete")
+        # Stage the updated universe file so the workflow commit picks it up
+        # (the workflow's git add only stages shares_outstanding.json explicitly)
+        try:
+            subprocess.run(["git", "add", "nse_universe.json"], check=False)
+            print("Staged nse_universe.json for commit")
+        except Exception:
+            pass
+        print("Universe refresh complete")
 
 
 def main():
@@ -47,16 +52,16 @@ def main():
     print("=" * 55)
 
     # Step 1: Refresh universe first
-    print("\n⏳ Step 1: Refreshing NSE universe...")
+    print("\nStep 1: Refreshing NSE universe...")
     refresh_universe()
 
     # Step 2: Reload universe (may have been updated)
     with open(UNIVERSE_FILE) as f:
         tickers = json.load(f)
 
-    print(f'\n⏳ Step 2: Fetching shares outstanding for {len(tickers)} tickers...')
+    print(f'\nStep 2: Fetching shares outstanding for {len(tickers)} tickers...')
 
-    # Load existing cache so a partial run doesn't lose previously-fetched values
+    # Load existing cache so a partial run does not lose previously-fetched values
     shares = {}
     if os.path.exists(OUTPUT_FILE):
         with open(OUTPUT_FILE) as f:
@@ -70,19 +75,19 @@ def main():
                 if val and val > 0:
                     shares[ticker] = float(val)
                 break
-            except:
+            except Exception:
                 time.sleep(1)
         if (i + 1) % 200 == 0:
-            print(f'   {i+1}/{len(tickers)} done — {len(shares)} found')
+            print(f'   {i+1}/{len(tickers)} done -- {len(shares)} found')
             time.sleep(1)
 
     pct = len(shares) / len(tickers) * 100 if tickers else 0
-    print(f'✅ Shares outstanding: {len(shares)}/{len(tickers)} ({pct:.0f}% coverage)')
+    print(f'Shares outstanding: {len(shares)}/{len(tickers)} ({pct:.0f}% coverage)')
 
     with open(OUTPUT_FILE, 'w') as f:
         json.dump({'updated_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
                     'shares': shares}, f)
-    print(f'✅ Wrote {OUTPUT_FILE}')
+    print(f'Wrote {OUTPUT_FILE}')
 
 
 if __name__ == '__main__':
