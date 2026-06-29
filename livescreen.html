@@ -600,34 +600,93 @@ function renderDelta() {
     document.getElementById('panel-delta').innerHTML = '<div class="empty">Run a screen first.</div>';
     return;
   }
-  const target  = new Set(latestTop15.map(r => r.ticker));
-  const current = new Set(currentPortfolio.map(r => r.ticker));
+  if (!currentPortfolio.length) {
+    document.getElementById('panel-delta').innerHTML = '<div class="empty">No portfolio holdings — import or add holdings first.</div>';
+    return;
+  }
 
-  const buy  = [...target].filter(t => !current.has(t));
-  const sell = [...current].filter(t => !target.has(t));
-  const hold = [...target].filter(t =>  current.has(t));
+  // Normalise tickers: strip .NS / .BO suffix for comparison
+  const norm = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
+
+  // Build lookup maps keyed by normalised ticker
+  const targetMap  = {};
+  latestTop15.forEach(r => { targetMap[norm(r.ticker)] = r; });
+  const portfolioMap = {};
+  currentPortfolio.forEach(r => { portfolioMap[norm(r.ticker)] = r; });
+
+  const targetKeys  = Object.keys(targetMap);
+  const currentKeys = Object.keys(portfolioMap);
+
+  const buy  = targetKeys.filter(t => !portfolioMap[t]);
+  const sell = currentKeys.filter(t => !targetMap[t]);
+  const hold = targetKeys.filter(t =>  portfolioMap[t]);
+
+  // Rank lookup for sell rows (use latestPassing for price if not in top15)
+  const allSnap = {};
+  [...latestTop15, ...latestPassing].forEach(r => { allSnap[norm(r.ticker)] = r; });
 
   const section = (label, tickers, cls) => {
     if (!tickers.length) return '';
-    const rows = tickers.map(t => {
-      const snap = latestTop15.find(r => r.ticker === t);
+    return tickers.map(t => {
+      const snap = allSnap[t];
+      const port = portfolioMap[t];
+      const price      = snap?.price ?? null;
+      const rankScore  = snap?.rank_score ?? null;
+      const shares     = port?.shares ?? null;
+      const avgCost    = port?.avg_cost ?? null;
+      const currVal    = (price && shares) ? price * shares : null;
+      const costVal    = (avgCost && shares) ? avgCost * shares : null;
+      const pnl        = (currVal && costVal) ? currVal - costVal : null;
+      const pnlPct     = (pnl && costVal) ? (pnl / costVal * 100) : null;
+      const pnlColor   = pnl === null ? '' : pnl >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+      const displayTicker = snap?.ticker ?? (port?.ticker ?? t);
+
+      // For buy: show rank + price. For hold: rank + price + shares + P&L. For sell: price + shares + P&L.
+      const sharesCell  = shares !== null ? shares : '—';
+      const avgCell     = avgCost !== null ? '₹'+fmtNum(avgCost) : '—';
+      const currValCell = currVal !== null ? '₹'+fmtNum(currVal, 0) : '—';
+      const pnlCell     = pnl !== null
+        ? `<span style="${pnlColor}">${pnl >= 0 ? '+' : ''}₹${fmtNum(Math.abs(pnl),0)} (${pnlPct >= 0 ? '+' : ''}${fmtNum(pnlPct,1)}%)</span>`
+        : '—';
+
       return `<tr>
         <td><span class="badge ${cls}">${label}</span></td>
-        <td class="ticker-cell">${t}</td>
-        <td>${snap ? '₹'+fmtNum(snap.price) : '—'}</td>
-        <td>${snap ? fmtNum(snap.rank_score,4) : '—'}</td>
+        <td class="ticker-cell">${displayTicker}</td>
+        <td>${price !== null ? '₹'+fmtNum(price) : '—'}</td>
+        <td>${rankScore !== null ? fmtNum(rankScore,4) : '—'}</td>
+        <td>${sharesCell}</td>
+        <td>${avgCell}</td>
+        <td>${currValCell}</td>
+        <td>${pnlCell}</td>
       </tr>`;
     }).join('');
-    return rows;
   };
 
-  let html = `<div class="alert info" style="margin-bottom:16px">
-    Buy: <strong>${buy.length}</strong> &nbsp;·&nbsp;
-    Sell: <strong>${sell.length}</strong> &nbsp;·&nbsp;
-    Hold: <strong>${hold.length}</strong>
+  const totalCurrVal = currentPortfolio.reduce((sum, r) => {
+    const snap = allSnap[norm(r.ticker)];
+    return sum + ((snap?.price ?? 0) * (r.shares ?? 0));
+  }, 0);
+  const totalCostVal = currentPortfolio.reduce((sum, r) => {
+    return sum + ((r.avg_cost ?? 0) * (r.shares ?? 0));
+  }, 0);
+  const totalPnl    = totalCurrVal - totalCostVal;
+  const totalPnlPct = totalCostVal ? (totalPnl / totalCostVal * 100) : 0;
+  const pnlColor    = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  let html = `
+  <div class="alert info" style="margin-bottom:12px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+    <span>Buy: <strong>${buy.length}</strong> &nbsp;·&nbsp; Sell: <strong>${sell.length}</strong> &nbsp;·&nbsp; Hold: <strong>${hold.length}</strong></span>
+    <span style="margin-left:auto;font-size:12px;color:var(--muted)">
+      Portfolio value: <strong style="color:var(--text)">₹${fmtNum(totalCurrVal,0)}</strong>
+      &nbsp;·&nbsp; Cost: <strong style="color:var(--text)">₹${fmtNum(totalCostVal,0)}</strong>
+      &nbsp;·&nbsp; P&L: <strong style="color:${pnlColor}">${totalPnl>=0?'+':''}₹${fmtNum(Math.abs(totalPnl),0)} (${totalPnlPct>=0?'+':''}${fmtNum(totalPnlPct,1)}%)</strong>
+    </span>
   </div>
   <div class="tbl-wrap"><table>
-  <thead><tr><th>Action</th><th>Ticker</th><th>Price</th><th>Rank Score</th></tr></thead>
+  <thead><tr>
+    <th>Action</th><th>Ticker</th><th>Price</th><th>Rank Score</th>
+    <th>Shares</th><th>Avg Cost</th><th>Curr Value</th><th>P&amp;L</th>
+  </tr></thead>
   <tbody>
   ${section('buy',  buy,  'buy')}
   ${section('hold', hold, 'hold')}
