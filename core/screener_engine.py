@@ -179,34 +179,32 @@ def run_screen(ind, config):
     if not passed.any() and not any(is_near_miss_map.values()):
         return pd.DataFrame(), pd.DataFrame(), universe_df, rejections, screen_date
 
-    # ── Build Top N: strict passes first, then near-misses fill remaining slots ─
-    strict_tickers = universe_df[universe_df['passes_all']].copy()
-    near_miss_candidates = (
-        universe_df[universe_df['is_near_miss']]
-        .head(50)   # only consider top 50 by rank for near-miss promotion
-        .copy()
-    )
+    # ── Build Top N: walk universe by rank, include strict pass OR near-miss ─────
+    # Near-miss stocks are eligible regardless of how many strict passes exist —
+    # a higher-ranked near-miss always beats a lower-ranked strict pass.
+    # Only constraint: stock must be in top 50 by rank to be near-miss eligible.
+    top_n_rows = []
+    n_promoted = 0
+    for _, row in universe_df.iterrows():
+        if len(top_n_rows) >= PORTFOLIO_SIZE:
+            break
+        rank_position = _ # 1-based index from universe_df (sorted by rank_score desc)
+        if row['passes_all']:
+            top_n_rows.append(row)
+        elif row['is_near_miss'] and rank_position <= 50:
+            top_n_rows.append(row)
+            n_promoted += 1
 
-    slots_remaining = PORTFOLIO_SIZE - len(strict_tickers)
-
-    if slots_remaining > 0 and len(near_miss_candidates):
-        # near_miss_candidates already sorted by rank_score desc (from universe_df)
-        promoted = near_miss_candidates.head(slots_remaining)
-        top_n_df = pd.concat([strict_tickers, promoted], ignore_index=True)
-    else:
-        top_n_df = strict_tickers.head(PORTFOLIO_SIZE).copy()
-
-    top_n_df = top_n_df.sort_values('rank_score', ascending=False).reset_index(drop=True)
+    top_n_df = pd.DataFrame(top_n_rows).reset_index(drop=True)
     top_n_df.index += 1
 
-    all_passing = strict_tickers.sort_values('rank_score', ascending=False).reset_index(drop=True)
+    all_passing = universe_df[universe_df['passes_all']].copy().reset_index(drop=True)
     all_passing.index += 1
 
     top15 = top_n_df.copy()
 
-    n_strict    = min(PORTFOLIO_SIZE, len(strict_tickers))
-    n_promoted  = len(top15) - n_strict
-    n_cash      = PORTFOLIO_SIZE - len(top15)
+    n_strict = len(top15) - n_promoted
+    n_cash   = PORTFOLIO_SIZE - len(top15)
 
     print(f'\n✅ Screen date  : {screen_date.date()}')
     print(f'   Universe     : {len(universe_df)} (valid data)')
