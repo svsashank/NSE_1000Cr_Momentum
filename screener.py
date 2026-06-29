@@ -117,13 +117,14 @@ def clean(val):
 def to_records(df):
     return [{k: clean(v) for k, v in row.items()} for _, row in df.iterrows()]
 
-def push(supabase, top15, all_passing, all_universe, rejections, screen_date):
+def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date):
     row = {
         'run_date'   : str(screen_date.date()),
         'universe'   : UNIVERSE_NAME,
         'top15'      : to_records(top15.reset_index())       if not top15.empty       else [],
         'all_passing': to_records(all_passing.reset_index()) if not all_passing.empty else [],
         'all_universe': to_records(all_universe.reset_index()) if not all_universe.empty else [],
+        'hold_zone'  : to_records(hold_zone.reset_index())   if not hold_zone.empty   else [],
         'filters'    : {
             'universe': UNIVERSE_NAME, 'portfolio_size': PORTFOLIO_SIZE,
             'min_mcap_inr_cr': CONFIG['min_mcap'], 'min_adv_inr_cr': CONFIG['min_adv'],
@@ -206,10 +207,10 @@ def main():
     ind                  = compute_indicators(raw, mcap_matrix, screen_tickers, CONFIG)
 
     print('\n⏳ Running screen...')
-    top15, all_passing, all_universe, rejections, screen_date = run_screen(ind, CONFIG)
+    top15, all_passing, all_universe, hold_zone, rejections, screen_date = run_screen(ind, CONFIG)
 
     print('\n📤 Pushing to Supabase...')
-    run_id = push(supabase, top15, all_passing, all_universe, rejections, screen_date)
+    run_id = push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date)
 
     print(f'\n✅ Done in {(time.time()-t0)/60:.1f} min — run_id: {run_id}')
 
