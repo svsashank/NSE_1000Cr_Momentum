@@ -172,7 +172,7 @@ def run_screen(ind, config):
         'passes_all'      : passed[all_tickers].values,
         # Near-miss fields
         'is_near_miss'    : [is_near_miss_map[t]     for t in all_tickers],
-        'near_miss_filter': [near_miss_filter_map[t] for t in all_tickers],
+        'near_miss_filter': [near_miss_filter_map[t] if near_miss_filter_map[t] is not None else None for t in all_tickers],
     }).sort_values('rank_score', ascending=False).reset_index(drop=True)
     universe_df.index += 1
 
@@ -204,7 +204,7 @@ def run_screen(ind, config):
 
     top15 = top_n_df.copy()
 
-    n_strict    = len(strict_tickers)
+    n_strict    = min(PORTFOLIO_SIZE, len(strict_tickers))
     n_promoted  = len(top15) - n_strict
     n_cash      = PORTFOLIO_SIZE - len(top15)
 
