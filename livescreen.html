@@ -679,19 +679,39 @@ function toggleAction(ticker) {
   const norm = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
   const n = norm(ticker);
 
+  // Helper: count active portfolio slots (holds + buys = target 15)
+  const countSlots = () => Object.values(rebalState.actions).filter(v => v === 'hold' || v === 'buy').length;
+
   if (a === 'sell') {
+    // Sell → Hold: this stock rejoins portfolio, so drop the lowest-ranked buy to keep total at 15
     rebalState.actions[n] = 'hold';
+    if (countSlots() > 15) {
+      // Find lowest-ranked active buy (last in buyList that is still 'buy')
+      const activeBuys = rebalState.buyList.filter(t => rebalState.actions[t] === 'buy');
+      if (activeBuys.length) {
+        const lowestBuy = activeBuys[activeBuys.length - 1];
+        rebalState.actions[lowestBuy] = 'skip';
+        rebalState.buyList = rebalState.buyList.filter(t => t !== lowestBuy);
+      }
+    }
   } else if (a === 'hold') {
+    // Hold → Sell: this stock leaves portfolio, so promote next eligible buy candidate
     rebalState.actions[n] = 'sell';
+    if (countSlots() < 15) {
+      const allInState = new Set(Object.keys(rebalState.actions));
+      const next = latestUniverse.find(r => {
+        const rn = norm(r.ticker);
+        return !allInState.has(rn) && (r.passes_all || r.is_near_miss);
+      });
+      if (next) {
+        const nn = norm(next.ticker);
+        rebalState.actions[nn] = 'buy';
+        rebalState.buyList.push(nn);
+      }
+    }
   } else if (a === 'buy') {
-    // Skip this buy — promote next eligible from pool
+    // Buy → Skip: replace with next eligible candidate to keep portfolio at 15
     rebalState.actions[n] = 'skip';
-    const currentBuySkipSet = new Set(
-      Object.entries(rebalState.actions)
-        .filter(([,v]) => v === 'skip' || v === 'buy')
-        .map(([k]) => k)
-    );
-    // Find next promotion candidate not already in any list
     const allInState = new Set(Object.keys(rebalState.actions));
     const next = latestUniverse.find(r => {
       const rn = norm(r.ticker);
@@ -702,6 +722,7 @@ function toggleAction(ticker) {
       rebalState.actions[nn] = 'buy';
       rebalState.buyList = rebalState.buyList.map(t => t === n ? nn : t);
     } else {
+      // No more candidates — slot goes to cash
       rebalState.buyList = rebalState.buyList.filter(t => t !== n);
     }
   }
