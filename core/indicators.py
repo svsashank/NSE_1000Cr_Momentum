@@ -66,7 +66,11 @@ def compute_indicators(raw_data, mcap_data, screen_tickers, config):
 
     print('   [1/8] SMA21 / SMA200...', end=' ', flush=True)
     sma_short = close.rolling(SMA_SHORT, min_periods=SMA_SHORT).mean()
-    sma_long  = close.rolling(SMA_LONG,  min_periods=SMA_LONG).mean()
+    # min_periods=SMA_LONG//2 lets newer listings (e.g. recent IPOs with <200d history)
+    # produce a valid SMA200 based on available data rather than being excluded entirely.
+    # The ranking signal (sma21/sma200) and SMA filter remain meaningful even with
+    # fewer days — a stock with 100-199d history uses those days for its long SMA.
+    sma_long  = close.rolling(SMA_LONG,  min_periods=max(SMA_SHORT, SMA_LONG//2)).mean()
     print('✓')
 
     print('   [2/8] Rank score...', end=' ', flush=True)
