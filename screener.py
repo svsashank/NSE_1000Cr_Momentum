@@ -133,6 +133,7 @@ def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, scre
             'sma_long': CONFIG['sma_long'], 'cmf_period': CONFIG['cmf_period'],
             'cmf_threshold': CONFIG['cmf_threshold'],
             'rejections': rejections,
+            'no_data_tickers': no_data_tickers,
         },
         'run_status' : 'complete',
         'triggered_at': datetime.utcnow().isoformat(),
@@ -207,7 +208,7 @@ def main():
     ind                  = compute_indicators(raw, mcap_matrix, screen_tickers, CONFIG)
 
     print('\n⏳ Running screen...')
-    top15, all_passing, all_universe, hold_zone, rejections, screen_date = run_screen(ind, CONFIG)
+    top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers = run_screen(ind, CONFIG)
 
     print('\n📤 Pushing to Supabase...')
     run_id = push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date)
