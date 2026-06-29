@@ -155,6 +155,8 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
     <input id="addShares" placeholder="Shares" type="number">
     <input id="addCost"   placeholder="Avg cost ₹" type="number" step="0.01">
     <button class="btn-sm" onclick="addHolding()">+ Add</button>
+    <button class="btn-sm" onclick="document.getElementById('csvImportInput').click()" title="Import from broker CSV export">📥 Import CSV</button>
+    <input type="file" id="csvImportInput" accept=".csv" style="display:none" onchange="importPortfolioCSV(this)">
   </div>
   <div id="portfolioTable"><div class="empty">Loading portfolio…</div></div>
 </div>
@@ -691,6 +693,64 @@ async function deleteHolding(ticker) {
   } catch(e) { alert(`Error: ${e.message}`); }
 }
 
+async function importPortfolioCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = ''; // reset so same file can be re-imported
+
+  const text = await file.text();
+  const lines = text.split(/\r?\n/);
+
+  // Find the header row: look for a line containing "Ticker" (case-insensitive)
+  let headerIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/ticker/i.test(lines[i])) { headerIdx = i; break; }
+  }
+  if (headerIdx === -1) {
+    alert('Could not find a "Ticker" column in this CSV. Please check the file format.');
+    return;
+  }
+
+  // Parse header to find column indices
+  const headers = lines[headerIdx].split(',').map(h => h.trim().toLowerCase());
+  const colTicker = headers.findIndex(h => h === 'ticker');
+  const colShares = headers.findIndex(h => h === 'shares');
+  const colAvgBuy = headers.findIndex(h => h.includes('avg buy'));
+
+  if (colTicker === -1) { alert('Ticker column not found.'); return; }
+
+  // Parse data rows
+  const holdings = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const row = lines[i].split(',').map(c => c.trim());
+    if (!row[colTicker] || row[colTicker] === '') continue;
+    const ticker   = row[colTicker].toUpperCase();
+    const shares   = colShares  !== -1 ? parseFloat(row[colShares])  || null : null;
+    const avg_cost = colAvgBuy  !== -1 ? parseFloat(row[colAvgBuy])  || null : null;
+    if (ticker) holdings.push({ ticker, shares, avg_cost, updated_at: new Date().toISOString() });
+  }
+
+  if (!holdings.length) { alert('No valid holdings found in the CSV.'); return; }
+
+  const msg = `Import ${holdings.length} holdings?\n\nThis will REPLACE your entire portfolio.\n\nTickers: ${holdings.map(h=>h.ticker).join(', ')}`;
+  if (!confirm(msg)) return;
+
+  try {
+    // Delete all existing, then bulk-insert
+    await sb('portfolio?ticker=like.*', { method: 'DELETE' });
+    // Insert in chunks of 50
+    for (let i = 0; i < holdings.length; i += 50) {
+      await sb('portfolio', {
+        method: 'POST',
+        prefer: 'return=minimal',
+        body: JSON.stringify(holdings.slice(i, i + 50))
+      });
+    }
+    await loadPortfolio();
+    alert(`✅ Imported ${holdings.length} holdings successfully.`);
+  } catch(e) { alert(`Import failed: ${e.message}`); }
+}
+
 // ── Run History ───────────────────────────────────────────────────────────────
 async function loadHistory() {
   try {
@@ -902,3 +962,4 @@ function renderScreenerTable(rows) {
 </script>
 </body>
 </html>
+
