@@ -131,33 +131,42 @@ def push(supabase, top15, all_passing, all_universe, rejections, screen_date):
     run_id = resp.data[0]['id'] if resp.data else None
     print(f'✅ screen_runs → id: {run_id}')
 
-    if not all_passing.empty:
+    # Upsert stock_snapshots for all_passing (strict) + near-miss promoted stocks
+    # top15 may contain near-miss rows not in all_passing — handle both sets
+    if not top15.empty or not all_passing.empty:
         top_set     = set(top15['ticker']) if not top15.empty else set()
         top_idx_map = {r['ticker']: int(i) for i, r in top15.reset_index().iterrows()}
+
+        # Merge: strict passes + any near-miss promoted stocks from top15
+        nm_in_top15 = top15[top15.get('is_near_miss', False) == True] if not top15.empty else pd.DataFrame()
+        combined    = pd.concat([all_passing, nm_in_top15]).drop_duplicates(subset='ticker') if not all_passing.empty else nm_in_top15
+
         rows = []
-        for _, r in all_passing.iterrows():
+        for _, r in combined.iterrows():
             t = r['ticker']
             rows.append({
-                'ticker'    : t,
-                'price'     : clean(r['price']),
-                'sma21'     : clean(r['sma21']),
-                'sma200'    : clean(r['sma200']),
-                'rank_score': clean(r['rank_score']),
-                'rsi14'     : clean(r['rsi']),
-                'adv20'     : clean(r['adv_m']),
-                'ann_vol'   : clean(r['volatility_pct']),
-                'cmf'       : clean(r['cmf']),
-                'high52w'   : clean(r['price'] / (1 + r['pct_from_high']/100)) if r['pct_from_high'] is not None else None,
-                'passes_all': True,
-                'in_top15'  : t in top_set,
-                'top15_rank': top_idx_map.get(t),
-                'updated_at': datetime.utcnow().isoformat(),
+                'ticker'        : t,
+                'price'         : clean(r['price']),
+                'sma21'         : clean(r['sma21']),
+                'sma200'        : clean(r['sma200']),
+                'rank_score'    : clean(r['rank_score']),
+                'rsi14'         : clean(r['rsi']),
+                'adv20'         : clean(r['adv_m']),
+                'ann_vol'       : clean(r['volatility_pct']),
+                'cmf'           : clean(r['cmf']),
+                'high52w'       : clean(r['price'] / (1 + r['pct_from_high']/100)) if r['pct_from_high'] is not None else None,
+                'passes_all'    : bool(r.get('passes_all', False)),
+                'in_top15'      : t in top_set,
+                'top15_rank'    : top_idx_map.get(t),
+                'is_near_miss'  : bool(r.get('is_near_miss', False)),
+                'near_miss_filter': r.get('near_miss_filter', None),
+                'updated_at'    : datetime.utcnow().isoformat(),
             })
         total = 0
         for i in range(0, len(rows), 200):
             supabase.table('stock_snapshots').upsert(rows[i:i+200], on_conflict='ticker').execute()
             total += min(200, len(rows) - i)
-        print(f'✅ stock_snapshots → {total} upserted')
+        print(f'✅ stock_snapshots → {total} upserted ({len(all_passing)} strict + {len(nm_in_top15)} near-miss promoted)')
 
     return run_id
 
