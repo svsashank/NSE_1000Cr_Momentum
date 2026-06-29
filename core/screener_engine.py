@@ -179,24 +179,33 @@ def run_screen(ind, config):
     if not passed.any() and not any(is_near_miss_map.values()):
         return pd.DataFrame(), pd.DataFrame(), universe_df, rejections, screen_date
 
-    # ── Build Top N: walk universe by rank, include strict pass OR near-miss ─────
-    # Near-miss stocks are eligible regardless of how many strict passes exist —
-    # a higher-ranked near-miss always beats a lower-ranked strict pass.
-    # Only constraint: stock must be in top 50 by rank to be near-miss eligible.
-    top_n_rows = []
-    n_promoted = 0
-    for _, row in universe_df.iterrows():
-        if len(top_n_rows) >= PORTFOLIO_SIZE:
-            break
-        rank_position = _ # 1-based index from universe_df (sorted by rank_score desc)
-        if row['passes_all']:
-            top_n_rows.append(row)
-        elif row['is_near_miss'] and rank_position <= 50:
-            top_n_rows.append(row)
-            n_promoted += 1
+    # ── Build Top N and Hold Zone: walk universe by rank ─────────────────────────
+    # Include each stock if strict pass OR near-miss (within top 50 by rank).
+    # Walk continues to HOLD_ZONE_SIZE to define the anti-whipsaw hold buffer.
+    # A higher-ranked near-miss always beats a lower-ranked strict pass.
+    HOLD_ZONE_SIZE = config.get('hold_zone_size', 25)
 
-    top_n_df = pd.DataFrame(top_n_rows).reset_index(drop=True)
+    top_n_rows    = []   # top PORTFOLIO_SIZE eligible stocks
+    hold_zone_rows = []  # top HOLD_ZONE_SIZE eligible stocks
+    n_promoted    = 0
+
+    for rank_position, row in universe_df.iterrows():
+        # rank_position is 1-based (universe_df.index starts at 1)
+        if len(hold_zone_rows) >= HOLD_ZONE_SIZE:
+            break
+        eligible = row['passes_all'] or (row['is_near_miss'] and rank_position <= 50)
+        if not eligible:
+            continue
+        hold_zone_rows.append(row)
+        if len(top_n_rows) < PORTFOLIO_SIZE:
+            top_n_rows.append(row)
+            if row['is_near_miss']:
+                n_promoted += 1
+
+    top_n_df      = pd.DataFrame(top_n_rows).reset_index(drop=True)
     top_n_df.index += 1
+    hold_zone_df  = pd.DataFrame(hold_zone_rows).reset_index(drop=True)
+    hold_zone_df.index += 1
 
     all_passing = universe_df[universe_df['passes_all']].copy().reset_index(drop=True)
     all_passing.index += 1
@@ -210,9 +219,10 @@ def run_screen(ind, config):
     print(f'   Universe     : {len(universe_df)} (valid data)')
     print(f'   Passing      : {len(all_passing)} (strict)')
     print(f'   Near-miss promoted: {n_promoted}')
+    print(f'   Hold zone    : {len(hold_zone_df)} (top {HOLD_ZONE_SIZE})')
     print(f'   Cash slots   : {n_cash}')
     print(f'   Top {PORTFOLIO_SIZE}       : {len(top15)}')
     print(f'\n🏆 TOP {len(top15)}:')
     print(top15[['ticker', 'price', 'rank_score', 'rsi', 'adv_m', 'cmf', 'is_near_miss', 'near_miss_filter']].to_string())
 
-    return top15, all_passing, universe_df, rejections, screen_date
+    return top15, all_passing, universe_df, hold_zone_df, rejections, screen_date
