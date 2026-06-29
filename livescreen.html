@@ -479,9 +479,15 @@ function renderTop15(runDate, filters) {
   </tr></thead><tbody>`;
 
   latestTop15.forEach((r, i) => {
-    html += `<tr>
+    const isNM   = r.is_near_miss;
+    const nmFilter = r.near_miss_filter ? r.near_miss_filter.toUpperCase() : '';
+    const rowStyle = isNM ? 'background:rgba(245,180,0,.07);' : '';
+    const nmBadge  = isNM
+      ? `<span title="Near-miss: ${nmFilter} within 10% of threshold" style="margin-left:6px;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(245,180,0,.2);color:#f5b800;">~${nmFilter}</span>`
+      : '';
+    html += `<tr style="${rowStyle}">
       <td class="rank">${r.index ?? i+1}</td>
-      <td class="ticker-cell">${r.ticker}</td>
+      <td class="ticker-cell">${r.ticker}${nmBadge}</td>
       <td>₹${fmtNum(r.price)}</td>
       <td>${fmtNum(r.rank_score, 4)}</td>
       <td>${fmtNum(r.rsi, 1)}</td>
@@ -980,11 +986,21 @@ function renderScreenerTable(rows) {
     const inPassing = passingSet.has(r.ticker);
     const failures  = countFailures(r);
     let rowStyle = '', tickerStyle = '', badge = '';
-    if (inTopN)      { rowStyle = 'background:rgba(62,207,142,.07);'; tickerStyle = 'color:var(--green);'; badge = ' ★'; }
+    if (inTopN && r.is_near_miss) { rowStyle = 'background:rgba(245,180,0,.09);'; tickerStyle = 'color:#f5b800;'; badge = ' ~'; }
+    else if (inTopN)      { rowStyle = 'background:rgba(62,207,142,.07);'; tickerStyle = 'color:var(--green);'; badge = ' ★'; }
     else if (inPassing) { rowStyle = 'background:rgba(91,143,255,.05);'; tickerStyle = 'color:var(--accent);'; }
+    else if (r.is_near_miss) { rowStyle = 'background:rgba(245,180,0,.05);'; tickerStyle = 'color:#f5b800;'; }
     else if (failures === 1) { rowStyle = 'background:rgba(245,158,11,.04);'; }
 
-    const filterCells = filterKeys.map(k => `<td style="text-align:center">${r[k] ? tick : cross}</td>`).join('');
+    const filterCells = filterKeys.map((k, ki) => {
+      if (r[k]) return `<td style="text-align:center">${tick}</td>`;
+      // Check if this filter is the one near-miss filter for this row
+      const filterName = ['mcap','adv','vol','rsi','sma','high','cmf'][ki];
+      if (r.is_near_miss && r.near_miss_filter === filterName) {
+        return `<td style="text-align:center" title="Near-miss: within 10% of threshold"><span style="font-size:13px">🟡</span></td>`;
+      }
+      return `<td style="text-align:center">${cross}</td>`;
+    }).join('');
 
     html += `<tr style="${rowStyle}">
       <td class="rank">${i + 1}</td>
