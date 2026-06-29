@@ -676,7 +676,7 @@ async function addHolding() {
     await sb('portfolio', {
       method: 'POST',
       prefer: 'return=minimal',
-      body: JSON.stringify({ ticker, shares, avg_cost: cost, updated_at: new Date().toISOString() })
+      body: JSON.stringify({ ticker, shares, avg_cost: cost })
     });
     document.getElementById('addTicker').value = '';
     document.getElementById('addShares').value = '';
@@ -727,7 +727,7 @@ async function importPortfolioCSV(input) {
     const ticker   = row[colTicker].toUpperCase();
     const shares   = colShares  !== -1 ? parseFloat(row[colShares])  || null : null;
     const avg_cost = colAvgBuy  !== -1 ? parseFloat(row[colAvgBuy])  || null : null;
-    if (ticker) holdings.push({ ticker, shares, avg_cost, updated_at: new Date().toISOString() });
+    if (ticker) holdings.push({ ticker, shares, avg_cost });
   }
 
   if (!holdings.length) { alert('No valid holdings found in the CSV.'); return; }
