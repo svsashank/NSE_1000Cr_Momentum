@@ -97,12 +97,21 @@ def build_mcap_matrix(close, shares_data):
 
 # ── Push to Supabase ──────────────────────────────────────────────────────────
 def clean(val):
+    if val is None:
+        return None
     if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
         return None
     if isinstance(val, np.integer):  return int(val)
     if isinstance(val, np.floating):
         v = float(val)
         return None if (math.isnan(v) or math.isinf(v)) else v
+    # pandas uses float NaN for missing object/string columns
+    try:
+        import pandas as pd
+        if pd.isna(val):
+            return None
+    except (TypeError, ValueError):
+        pass
     return val
 
 def to_records(df):
@@ -159,7 +168,7 @@ def push(supabase, top15, all_passing, all_universe, rejections, screen_date):
                 'in_top15'      : t in top_set,
                 'top15_rank'    : top_idx_map.get(t),
                 'is_near_miss'  : bool(r.get('is_near_miss', False)),
-                'near_miss_filter': r.get('near_miss_filter', None),
+                'near_miss_filter': r.get('near_miss_filter') if r.get('near_miss_filter') and str(r.get('near_miss_filter')) != 'nan' else None,
                 'updated_at'    : datetime.utcnow().isoformat(),
             })
         total = 0
