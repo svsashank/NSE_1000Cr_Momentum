@@ -600,6 +600,35 @@ function renderUniverse(runDate, filters) {
     </tr>`;
   });
   html += '</tbody></table></div>';
+
+  // ── Insufficient data section ─────────────────────────────────────────────
+  // Tickers in the universe but excluded because they lack sufficient price
+  // history (typically recent IPOs that haven't yet accumulated 200 trading
+  // days for SMA200). Shown at the bottom for transparency.
+  const noDataTickers = (latestRun && latestRun.filters && latestRun.filters.no_data_tickers) || [];
+  if (noDataTickers.length) {
+    html += `<div style="margin-top:28px">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
+        Insufficient Data — ${noDataTickers.length} tickers
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+        These stocks are in the universe but have insufficient price history
+        (e.g. recent IPOs with &lt;200 trading days) and cannot be screened yet.
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${noDataTickers.map(t => `<span style="
+          background:rgba(255,255,255,.05);
+          border:1px solid rgba(255,255,255,.1);
+          border-radius:4px;
+          padding:3px 8px;
+          font-size:12px;
+          color:var(--muted);
+          font-family:monospace
+        ">${t}</span>`).join('')}
+      </div>
+    </div>`;
+  }
+
   panel.innerHTML = html;
 }
 
