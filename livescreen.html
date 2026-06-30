@@ -605,7 +605,7 @@ function renderUniverse(runDate, filters) {
   // Tickers in the universe but excluded because they lack sufficient price
   // history (typically recent IPOs that haven't yet accumulated 200 trading
   // days for SMA200). Shown at the bottom for transparency.
-  const noDataTickers = (latestRun && latestRun.filters && latestRun.filters.no_data_tickers) || [];
+  const noDataTickers = (filters && filters.no_data_tickers) || [];
   if (noDataTickers.length) {
     html += `<div style="margin-top:28px">
       <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
