@@ -117,7 +117,7 @@ def clean(val):
 def to_records(df):
     return [{k: clean(v) for k, v in row.items()} for _, row in df.iterrows()]
 
-def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date):
+def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers):
     row = {
         'run_date'   : str(screen_date.date()),
         'universe'   : UNIVERSE_NAME,
@@ -211,7 +211,7 @@ def main():
     top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers = run_screen(ind, CONFIG)
 
     print('\n📤 Pushing to Supabase...')
-    run_id = push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date)
+    run_id = push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers)
 
     print(f'\n✅ Done in {(time.time()-t0)/60:.1f} min — run_id: {run_id}')
 
