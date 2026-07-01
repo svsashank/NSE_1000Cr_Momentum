@@ -664,6 +664,7 @@ function renderPassing(runDate) {
 }
 
 function renderUniverse(runDate, filters) {
+  const norm = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
   const panel = document.getElementById('panel-universe');
   if (!latestUniverse.length) {
     // Fallback: if old run (no all_universe yet), show a helpful message
