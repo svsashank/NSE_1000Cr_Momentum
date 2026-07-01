@@ -709,9 +709,12 @@ function renderUniverse(runDate, filters) {
       rowStyle = 'background:rgba(91,143,255,.05);';
       tickerStyle = 'color:var(--accent);';
     }
+    const survWarnSet = new Set((window._latestFilters?.surveillance_warning_tickers || []).map(s => s.toUpperCase()));
     const survBadge = r.p_surv === false
-      ? ' <span title="NSE surveillance (BE/BZ/ST)" style="background:var(--red);color:#fff;border-radius:3px;padding:1px 4px;font-size:10px;font-weight:700">🚨</span>'
-      : '';
+      ? ' <span title="NSE GSM surveillance (BZ) — hard blocked" style="background:var(--red);color:#fff;border-radius:3px;padding:1px 4px;font-size:10px;font-weight:700">🚨</span>'
+      : (survWarnSet.has(norm(r.ticker))
+          ? ' <span title="NSE trade-for-trade / short-term surveillance (BE/ST) — not blocked, review before buying" style="background:var(--yellow);color:#000;border-radius:3px;padding:1px 4px;font-size:10px;font-weight:700">⚠</span>'
+          : '');
 
     const filterCells = filterCols.map(col =>
       `<td style="text-align:center">${r[col] ? tick : cross}</td>`
