@@ -235,6 +235,26 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
         <div class="field"><label>Lookback days</label><input type="number" id="pLookback" value="550"></div>
       </div>
     </div>
+    <div style="margin-top:20px;border-top:1px solid rgba(255,255,255,.08);padding-top:20px">
+      <div class="section-title" style="margin-bottom:12px">🥇 Gold Allocation (GOLDBEES)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+        <div class="field">
+          <label>Target allocation %</label>
+          <input type="number" id="pGoldTargetPct" value="10" min="0" max="50" step="1">
+          <span class="field-hint">% of total portfolio MTM value</span>
+        </div>
+        <div class="field">
+          <label>Rebalance threshold %</label>
+          <input type="number" id="pGoldThresholdPct" value="2.5" min="0.5" max="20" step="0.5">
+          <span class="field-hint">Only rebalance if drift exceeds this</span>
+        </div>
+        <div class="field">
+          <label>Gold ETF ticker</label>
+          <input type="text" id="pGoldTicker" value="GOLDBEES" style="font-family:monospace">
+          <span class="field-hint">NSE symbol (without .NS)</span>
+        </div>
+      </div>
+    </div>
     <div style="margin-top:20px;display:flex;gap:10px">
       <button class="btn-sm" onclick="resetParams()">↺ Reset to defaults</button>
       <button onclick="triggerRun()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer">▶ Run with these params</button>
@@ -279,7 +299,8 @@ function gatherScreenParams() {
 
 function resetParams() {
   const d = { pPortfolioSize:15, pSmaShort:21, pSmaLong:200, pRsi:50,
-    pMaxVol:0.75, pMaxFromHigh:0.25, pSmaBuffer:0.05, pCmf:0.1, pMinMcap:1000, pMinAdv:10, pLookback:550 };
+    pMaxVol:0.75, pMaxFromHigh:0.25, pSmaBuffer:0.05, pCmf:0.1, pMinMcap:1000, pMinAdv:10, pLookback:550,
+    pGoldTargetPct:10, pGoldThresholdPct:2.5, pGoldTicker:'GOLDBEES' };
   Object.entries(d).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
 }
 
