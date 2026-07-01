@@ -419,6 +419,7 @@ async function loadLatestScreen() {
     latestHoldZone = run.hold_zone   || [];
     scrScreenDate  = run.run_date    || '';
 
+    window._latestFilters = run.filters || {};
     renderTop15(run.run_date, run.filters);
     renderPassing(run.run_date);
     renderDelta();
@@ -548,8 +549,8 @@ function renderUniverse(runDate, filters) {
   // Sort by rank_score desc (already sorted from backend, but defensive)
   const sorted = [...latestUniverse].sort((a, b) => (b.rank_score ?? -Infinity) - (a.rank_score ?? -Infinity));
 
-  const filterCols = ['p_mcap','p_adv','p_vol','p_rsi','p_sma','p_high','p_cmf'];
-  const filterLabels = ['MCap','ADV','Vol','RSI','SMA','52W High','CMF'];
+  const filterCols = ['p_mcap','p_adv','p_vol','p_rsi','p_sma','p_high','p_cmf','p_surv'];
+  const filterLabels = ['MCap','ADV','Vol','RSI','SMA','52W High','CMF','Surv'];
 
   const tick = '<span style="color:var(--green)">✓</span>';
   const cross = '<span style="color:var(--red)">✗</span>';
@@ -580,6 +581,9 @@ function renderUniverse(runDate, filters) {
       rowStyle = 'background:rgba(91,143,255,.05);';
       tickerStyle = 'color:var(--accent);';
     }
+    const survBadge = r.p_surv === false
+      ? ' <span title="NSE surveillance (BE/BZ/ST)" style="background:var(--red);color:#fff;border-radius:3px;padding:1px 4px;font-size:10px;font-weight:700">🚨</span>'
+      : '';
 
     const filterCells = filterCols.map(col =>
       `<td style="text-align:center">${r[col] ? tick : cross}</td>`
@@ -587,7 +591,7 @@ function renderUniverse(runDate, filters) {
 
     html += `<tr style="${rowStyle}">
       <td class="rank">${i + 1}</td>
-      <td class="ticker-cell" style="${tickerStyle}">${r.ticker}${tickerSuffix}</td>
+      <td class="ticker-cell" style="${tickerStyle}">${r.ticker}${tickerSuffix}${survBadge}</td>
       <td>₹${fmtNum(r.price)}</td>
       <td>${r.rank_score != null ? fmtNum(r.rank_score, 4) : '—'}</td>
       <td>${fmtNum(r.rsi, 1)}</td>
@@ -686,24 +690,37 @@ function renderDelta() {
   const initialHolds = Object.keys(portfolioMap).filter(t => holdZoneSet.has(t));
   const initialSells = Object.keys(portfolioMap).filter(t => !holdZoneSet.has(t));
 
+  // Surveillance set — tickers under NSE trade restrictions (BE/BZ/ST)
+  const survSet = new Set();
+  (window._latestFilters?.surveillance_tickers || []).forEach(s => survSet.add(s.toUpperCase()));
+  latestUniverse.forEach(r => { if (r.p_surv === false) survSet.add(norm(r.ticker)); });
+
   // Init or restore state
   if (!rebalState ||
       rebalState.runId !== (latestTop15[0]?.ticker + latestTop15.length)) {
     rebalState = {
       runId: latestTop15[0]?.ticker + latestTop15.length,
-      actions: {},       // norm ticker → 'buy'|'hold'|'sell'|'skip'
-      buyList: [...initialBuys],   // ordered buy list (skips replaced by promotions)
+      actions: {},       // norm ticker → 'buy'|'hold'|'sell'|'skip'|'surv_sell'
+      buyList: [...initialBuys],
       phase: 1
     };
     initialBuys.forEach(t  => { rebalState.actions[t] = 'buy'; });
     initialHolds.forEach(t => { rebalState.actions[t] = 'hold'; });
     initialSells.forEach(t => { rebalState.actions[t] = 'sell'; });
+    Object.keys(portfolioMap).forEach(t => {
+      if (survSet.has(t)) rebalState.actions[t] = 'surv_sell';
+    });
   }
+  // Re-apply surveillance lock on every render (in case survSet changes)
+  Object.keys(portfolioMap).forEach(t => {
+    if (survSet.has(t)) rebalState.actions[t] = 'surv_sell';
+  });
 
   renderDeltaPhase1();
 }
 
 function toggleAction(ticker) {
+  if (rebalState.actions[ticker] === 'surv_sell') return; // locked — cannot override
   const a = rebalState.actions[ticker];
   const norm = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
   const n = norm(ticker);
@@ -785,7 +802,7 @@ function renderDeltaPhase1() {
   cashPool += liquidVal;
 
   Object.entries(rebalState.actions).forEach(([t, action]) => {
-    if (action === 'sell') {
+    if (action === 'sell' || action === 'surv_sell') {
       const port = portfolioMap[t];
       const price = priceMap[t] ?? 0;
       cashPool += (port?.shares ?? 0) * price;
@@ -812,9 +829,12 @@ function renderDeltaPhase1() {
 
   const buys  = Object.entries(rebalState.actions).filter(([,v]) => v === 'buy').map(([k]) => k);
   const holds = Object.entries(rebalState.actions).filter(([,v]) => v === 'hold').map(([k]) => k);
-  const sells = Object.entries(rebalState.actions).filter(([,v]) => v === 'sell').map(([k]) => k);
+  const sells = Object.entries(rebalState.actions).filter(([,v]) => v === 'sell' || v === 'surv_sell').map(([k]) => k);
 
   const actionBadge = (t, action) => {
+    if (action === 'surv_sell') {
+      return `<span class="badge sell" style="cursor:not-allowed;user-select:none" title="Under NSE surveillance (BE/BZ/ST) — forced sell, cannot override">🚨 SELL</span>`;
+    }
     const colors = { buy: 'var(--green)', hold: 'var(--accent)', sell: 'var(--red)', skip: 'var(--muted)' };
     const next = { sell: 'hold', hold: 'sell', buy: 'skip→next', skip: '' };
     const tip = next[action] ? `Click to → ${next[action]}` : '';
@@ -908,7 +928,7 @@ function renderDeltaPhase2() {
   const liquidVal    = liquidPrice * liquidShares;
 
   let cashPool = liquidVal;
-  const sells = Object.entries(rebalState.actions).filter(([,v]) => v === 'sell').map(([k]) => k);
+  const sells = Object.entries(rebalState.actions).filter(([,v]) => v === 'sell' || v === 'surv_sell').map(([k]) => k);
   const holds = Object.entries(rebalState.actions).filter(([,v]) => v === 'hold').map(([k]) => k);
   const buys  = Object.entries(rebalState.actions).filter(([,v]) => v === 'buy').map(([k]) => k);
 
