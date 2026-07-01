@@ -861,7 +861,7 @@ function renderDeltaPhase1() {
     else portfolioMap[n] = r;
   });
 
-  // Compute cash pool: sells + LIQUIDCASE
+  // Compute cash pool: sells + LIQUIDCASE + gold proceeds (if trimming gold)
   let cashPool = 0;
   const liquidPrice = priceMap[LIQUIDCASE] ?? liquidcaseHolding?.avg_cost ?? 0;
   const liquidShares = liquidcaseHolding?.shares ?? 0;
@@ -875,6 +875,10 @@ function renderDeltaPhase1() {
       cashPool += (port?.shares ?? 0) * price;
     }
   });
+
+  // Gold: selling excess adds to equity pool; buying gold deducts from it
+  if (goldAction === 'sell') cashPool += goldDeltaVal;
+  if (goldAction === 'buy')  cashPool -= goldDeltaVal;  // gold buy competes with equity buys
 
   const activeBuys = Object.entries(rebalState.actions)
     .filter(([,v]) => v === 'buy').map(([k]) => k);
@@ -948,8 +952,16 @@ function renderDeltaPhase1() {
       Cash pool (sells + LIQUIDCASE): <strong style="color:var(--text)">₹${fmtNum(cashPool,0)}</strong>
       &nbsp;·&nbsp; Per buy: <strong style="color:var(--text)">₹${fmtNum(perBuyValue,0)}</strong>
     </span>
+    <span style="font-size:12px;color:var(--muted)">
+      🥇 Gold ${goldActualPct.toFixed(1)}% → target ${goldTargetPct}%
+      ${goldNeedsRebal
+        ? (goldAction==='buy'
+            ? `<strong style="color:var(--green)">▲ BUY ${goldDeltaShares} units (₹${fmtNum(goldDeltaVal,0)})</strong>`
+            : `<strong style="color:var(--red)">▼ SELL ${goldDeltaShares} units (₹${fmtNum(goldDeltaVal,0)})</strong>`)
+        : `<strong style="color:var(--muted)">✓ Within ${goldThreshPct}% threshold</strong>`}
+    </span>
     <span style="margin-left:auto;font-size:12px;color:var(--muted)">
-      Portfolio: <strong style="color:var(--text)">₹${fmtNum(totalCurrVal,0)}</strong>
+      Portfolio: <strong style="color:var(--text)">₹${fmtNum(totalPortfolioVal,0)}</strong>
       &nbsp;·&nbsp; P&amp;L: <strong style="color:${pnlColor}">${totalPnl>=0?'+':''}₹${fmtNum(Math.abs(totalPnl),0)} (${totalPnlPct>=0?'+':''}${fmtNum(totalPnlPct,1)}%)</strong>
     </span>
   </div>
