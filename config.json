@@ -20,6 +20,9 @@
     "RELIANCE.NS",
     "TCS.NS"
   ],
-  "_comment": "All thresholds in INR Cr (1 Cr = 1e7 INR). Edit and commit to change screener behavior - no code changes needed. shares_outstanding cache refreshed weekly; mcap = shares_outstanding * latest_close / 1e7.",
-  "sma_buffer": 0.05
+  "_comment": "All thresholds in INR Cr (1 Cr = 1e7 INR). gold_target_pct: target gold allocation as % of total portfolio MTM. gold_rebal_threshold_pct: only rebalance gold if actual % deviates by more than this from target. shares_outstanding cache refreshed weekly; mcap = shares_outstanding * latest_close / 1e7.",
+  "sma_buffer": 0.05,
+  "gold_ticker": "GOLDBEES.NS",
+  "gold_target_pct": 10.0,
+  "gold_rebal_threshold_pct": 2.5
 }
