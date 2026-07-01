@@ -117,7 +117,7 @@ def clean(val):
 def to_records(df):
     return [{k: clean(v) for k, v in row.items()} for _, row in df.iterrows()]
 
-def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers):
+def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers, surveillance_tickers=None):
     row = {
         'run_date'   : str(screen_date.date()),
         'universe'   : UNIVERSE_NAME,
@@ -134,6 +134,7 @@ def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, scre
             'cmf_threshold': CONFIG['cmf_threshold'],
             'rejections': rejections,
             'no_data_tickers': no_data_tickers,
+            'surveillance_tickers': sorted(surveillance_tickers),
         },
         'run_status' : 'complete',
         'triggered_at': datetime.utcnow().isoformat(),
@@ -183,6 +184,45 @@ def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, scre
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
+def fetch_surveillance_tickers():
+    """
+    Fetch NSE's sec_list.csv — stocks under trade restrictions (BE/BZ/ST series).
+    Returns a set of symbols (without .NS suffix) currently under surveillance.
+    BE = trade-for-trade, BZ = GSM, ST = short-term surveillance.
+    URL is public, no session cookies required.
+    Falls back to empty set on any failure so the screener never hard-blocks
+    due to a data fetch issue.
+    """
+    import urllib.request, csv, io
+    urls = [
+        'https://nsearchives.nseindia.com/content/equities/sec_list.csv',
+    ]
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+        'Referer': 'https://www.nseindia.com/',
+    }
+    SURVEILLANCE_SERIES = {'BE', 'BZ', 'ST'}
+    for url in urls:
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                raw = resp.read().decode('utf-8', errors='replace')
+            reader = csv.DictReader(io.StringIO(raw))
+            tickers = set()
+            for row in reader:
+                sym    = row.get('Symbol', '').strip()
+                series = row.get('Series', '').strip()
+                if sym and series in SURVEILLANCE_SERIES:
+                    tickers.add(sym)
+            print(f'   Surveillance list: {len(tickers)} tickers under BE/BZ/ST')
+            return tickers
+        except Exception as e:
+            print(f'   Warning: surveillance fetch failed ({e}) — skipping filter')
+    return set()
+
+
 def main():
     t0 = time.time()
     print('='*60)
@@ -208,10 +248,13 @@ def main():
     ind                  = compute_indicators(raw, mcap_matrix, screen_tickers, CONFIG)
 
     print('\n⏳ Running screen...')
-    top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers = run_screen(ind, CONFIG)
+    print('\n⏳ Fetching NSE surveillance list...')
+    surveillance_tickers = fetch_surveillance_tickers()
+
+    top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers = run_screen(ind, CONFIG, surveillance_tickers)
 
     print('\n📤 Pushing to Supabase...')
-    run_id = push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers)
+    run_id = push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers, surveillance_tickers)
 
     print(f'\n✅ Done in {(time.time()-t0)/60:.1f} min — run_id: {run_id}')
 
