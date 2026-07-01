@@ -117,7 +117,7 @@ def clean(val):
 def to_records(df):
     return [{k: clean(v) for k, v in row.items()} for _, row in df.iterrows()]
 
-def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers, surveillance_tickers=None):
+def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers, surveillance_hard_block=None, surveillance_warning=None):
     row = {
         'run_date'   : str(screen_date.date()),
         'universe'   : UNIVERSE_NAME,
@@ -134,7 +134,8 @@ def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, scre
             'cmf_threshold': CONFIG['cmf_threshold'],
             'rejections': rejections,
             'no_data_tickers': no_data_tickers,
-            'surveillance_tickers': sorted(surveillance_tickers),
+            'surveillance_tickers': sorted(surveillance_hard_block or []),
+            'surveillance_warning_tickers': sorted(surveillance_warning or []),
         },
         'run_status' : 'complete',
         'triggered_at': datetime.utcnow().isoformat(),
@@ -187,12 +188,23 @@ def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, scre
 
 def fetch_surveillance_tickers():
     """
-    Fetch NSE's sec_list.csv — stocks under trade restrictions (BE/BZ/ST series).
-    Returns a set of symbols (without .NS suffix) currently under surveillance.
-    BE = trade-for-trade, BZ = GSM, ST = short-term surveillance.
-    URL is public, no session cookies required.
-    Falls back to empty set on any failure so the screener never hard-blocks
-    due to a data fetch issue.
+    Fetch NSE's sec_list.csv — stocks under trade restrictions.
+
+    Split into two tiers based on actual risk:
+      - HARD_BLOCK_SERIES = {'BZ'}       GSM (Graded Surveillance Measure) —
+        NSE's dedicated framework for suspected price manipulation / shell-
+        company characteristics. Real catastrophic-tail risk. Hard-blocked:
+        never enters Top 15, forced sell if already held.
+      - WARNING_SERIES = {'BE', 'ST'}    Trade-for-trade / short-term
+        surveillance — often routine (new listings, momentum-driven price
+        spikes, minor promoter-pledge disclosures). Not necessarily a red
+        flag, and blanket-blocking these disproportionately excludes strong
+        momentum candidates. Surfaced as a visible warning instead —
+        does not block entry, does not force a sell.
+
+    Returns (hard_block_set, warning_set), each a set of symbols (no .NS
+    suffix). Falls back to empty sets on any failure so the screener never
+    hard-blocks due to a data fetch issue.
     """
     import urllib.request, csv, io
     urls = [
@@ -203,24 +215,29 @@ def fetch_surveillance_tickers():
         'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
         'Referer': 'https://www.nseindia.com/',
     }
-    SURVEILLANCE_SERIES = {'BE', 'BZ', 'ST'}
+    HARD_BLOCK_SERIES = {'BZ'}
+    WARNING_SERIES    = {'BE', 'ST'}
     for url in urls:
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=20) as resp:
                 raw = resp.read().decode('utf-8', errors='replace')
             reader = csv.DictReader(io.StringIO(raw))
-            tickers = set()
+            hard_block, warning = set(), set()
             for row in reader:
                 sym    = row.get('Symbol', '').strip()
                 series = row.get('Series', '').strip()
-                if sym and series in SURVEILLANCE_SERIES:
-                    tickers.add(sym)
-            print(f'   Surveillance list: {len(tickers)} tickers under BE/BZ/ST')
-            return tickers
+                if not sym:
+                    continue
+                if series in HARD_BLOCK_SERIES:
+                    hard_block.add(sym)
+                elif series in WARNING_SERIES:
+                    warning.add(sym)
+            print(f'   Surveillance: {len(hard_block)} hard-block (BZ), {len(warning)} warning (BE/ST)')
+            return hard_block, warning
         except Exception as e:
             print(f'   Warning: surveillance fetch failed ({e}) — skipping filter')
-    return set()
+    return set(), set()
 
 
 def main():
@@ -249,12 +266,13 @@ def main():
 
     print('\n⏳ Running screen...')
     print('\n⏳ Fetching NSE surveillance list...')
-    surveillance_tickers = fetch_surveillance_tickers()
+    surveillance_hard_block, surveillance_warning = fetch_surveillance_tickers()
 
-    top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers = run_screen(ind, CONFIG, surveillance_tickers)
+    top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers = run_screen(ind, CONFIG, surveillance_hard_block)
 
     print('\n📤 Pushing to Supabase...')
-    run_id = push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers, surveillance_tickers)
+    run_id = push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers,
+                  surveillance_hard_block, surveillance_warning)
 
     print(f'\n✅ Done in {(time.time()-t0)/60:.1f} min — run_id: {run_id}')
 
