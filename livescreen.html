@@ -1016,6 +1016,37 @@ function renderDeltaPhase2() {
     cashPool += (port?.shares ?? 0) * (priceMap[t] ?? 0);
   });
 
+  // ── Gold rebalance in Phase 2 ─────────────────────────────────────────────
+  const goldTargetPct2   = parseFloat(document.getElementById('pGoldTargetPct')?.value   ?? 10);
+  const goldThreshPct2   = parseFloat(document.getElementById('pGoldThresholdPct')?.value ?? 2.5);
+  const goldSymbol2      = (document.getElementById('pGoldTicker')?.value ?? 'GOLDBEES').toUpperCase().replace(/\.NS$/i,'');
+  const goldHolding2     = currentPortfolio.find(r => norm(r.ticker) === goldSymbol2) ?? null;
+  const goldShares2      = goldHolding2?.shares ?? 0;
+  const goldPrice2       = priceMap[goldSymbol2] ?? goldHolding2?.avg_cost ?? null;
+  const goldCurrVal2     = goldPrice2 ? goldShares2 * goldPrice2 : 0;
+  const equityVal2       = Object.entries(portfolioMap).reduce((s,[t,p]) => s + ((priceMap[t]??p.avg_cost??0)*(p.shares??0)), 0);
+  const totalPortVal2    = equityVal2 + goldCurrVal2 + liquidVal;
+  const goldTargetVal2   = totalPortVal2 * (goldTargetPct2 / 100);
+  const goldActualPct2   = totalPortVal2 > 0 ? (goldCurrVal2 / totalPortVal2 * 100) : 0;
+  const goldDrift2       = goldActualPct2 - goldTargetPct2;
+  const goldNeedsRebal2  = Math.abs(goldDrift2) > goldThreshPct2;
+  let goldAction2 = 'hold', goldDeltaShares2 = 0, goldDeltaVal2 = 0;
+  if (goldNeedsRebal2 && goldPrice2) {
+    if (goldDrift2 < 0) {
+      // Under: buy gold — deduct from equity cash pool
+      goldAction2       = 'buy';
+      goldDeltaShares2  = Math.floor((goldTargetVal2 - goldCurrVal2) / goldPrice2);
+      goldDeltaVal2     = goldDeltaShares2 * goldPrice2;
+      cashPool         -= goldDeltaVal2;  // gold buy comes from equity pool
+    } else {
+      // Over: sell gold — proceeds go into equity pool
+      goldAction2       = 'sell';
+      goldDeltaShares2  = Math.floor((goldCurrVal2 - goldTargetVal2) / goldPrice2);
+      goldDeltaVal2     = goldDeltaShares2 * goldPrice2;
+      cashPool         += goldDeltaVal2;
+    }
+  }
+
   const perBuyValue = buys.length ? cashPool / buys.length : cashPool;
 
   // Compute buy quantities
@@ -1058,6 +1089,30 @@ function renderDeltaPhase2() {
     <td><strong>₹${fmtNum(liquidVal,0)}</strong></td>
     <td style="color:var(--muted)">Always liquidated</td>
   </tr>` : '';
+
+  // Gold execution row
+  const goldRow = (!goldNeedsRebal2 || !goldPrice2) ? `<tr style="background:rgba(91,143,255,.05)">
+    <td><span class="badge hold">HOLD</span></td>
+    <td class="ticker-cell">🥇 ${goldSymbol2}.NS</td>
+    <td>${goldPrice2 ? '₹'+fmtNum(goldPrice2) : '—'}</td>
+    <td>${goldShares2}</td>
+    <td>₹${fmtNum(goldCurrVal2,0)}</td>
+    <td style="color:var(--muted)">${goldActualPct2.toFixed(1)}% of portfolio — within ±${goldThreshPct2}% threshold</td>
+  </tr>` : goldAction2 === 'sell' ? `<tr style="background:rgba(255,102,102,.06)">
+    <td><span class="badge sell">SELL</span></td>
+    <td class="ticker-cell">🥇 ${goldSymbol2}.NS</td>
+    <td>₹${fmtNum(goldPrice2)}</td>
+    <td><strong>${goldDeltaShares2}</strong></td>
+    <td><strong>₹${fmtNum(goldDeltaVal2,0)}</strong></td>
+    <td style="color:var(--muted)">Trim: ${goldActualPct2.toFixed(1)}% → ${goldTargetPct2}% target (proceeds fund equity)</td>
+  </tr>` : `<tr style="background:rgba(62,207,142,.07)">
+    <td><span class="badge buy">BUY</span></td>
+    <td class="ticker-cell">🥇 ${goldSymbol2}.NS</td>
+    <td>₹${fmtNum(goldPrice2)}</td>
+    <td><strong>${goldDeltaShares2}</strong></td>
+    <td><strong>₹${fmtNum(goldDeltaVal2,0)}</strong></td>
+    <td style="color:var(--muted)">Top-up: ${goldActualPct2.toFixed(1)}% → ${goldTargetPct2}% target (funded from equity pool)</td>
+  </tr>`;
 
   // Hold rows
   const holdRows = holds.map(t => {
@@ -1104,6 +1159,7 @@ function renderDeltaPhase2() {
     <button class="btn-sm" onclick="renderDeltaPhase1()">← Back to Phase 1</button>
     <span style="font-size:15px;font-weight:600;color:var(--text)">Execution Plan</span>
     <span style="margin-left:auto;font-size:12px;color:var(--muted)">
+      🥇 Gold: ${goldActualPct2.toFixed(1)}% → ${goldTargetPct2}% &nbsp;·&nbsp;
       Cash pool: <strong style="color:var(--text)">₹${fmtNum(cashPool,0)}</strong>
       &nbsp;·&nbsp; Spent: <strong style="color:var(--text)">₹${fmtNum(totalSpent+liquidBuyVal,0)}</strong>
       &nbsp;·&nbsp; Undeployed: <strong style="color:var(--yellow)">₹${fmtNum(finalResidual,0)}</strong>
@@ -1115,6 +1171,7 @@ function renderDeltaPhase2() {
   </tr></thead><tbody>
   ${sellRows}
   ${liquidSellRow}
+  ${goldRow}
   ${holdRows}
   ${buyRows}
   ${liquidBuyRow}
