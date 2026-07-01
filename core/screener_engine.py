@@ -40,7 +40,7 @@ def find_screen_date(ind, anchors):
     return non_null[non_null >= threshold].index[-1]
 
 
-def run_screen(ind, config):
+def run_screen(ind, config, surveillance_tickers=None):
     MIN_MCAP       = config['min_mcap']
     MIN_ADV        = config['min_adv']
     MAX_VOLATILITY = config['max_volatility']
@@ -88,7 +88,22 @@ def run_screen(ind, config):
     m_sma  = close_row.ge(sma_s_row.mul(1 - SMA_BUFFER))
     m_high = close_row.ge(high52_row.mul(1 - MAX_FROM_HIGH))
     m_cmf  = cmf_row.ge(CMF_THRESHOLD)
-    passed = valid & m_mcap & m_adv & m_vol & m_rsi & m_sma & m_high & m_cmf
+
+    # ── Surveillance filter (hard block — no near-miss relaxation) ─────────────
+    # NSE sec_list.csv: stocks in BE/BZ/ST series are under trade restrictions.
+    # These are always excluded from Top 15 and from the hold zone.
+    # An existing holding that appears here should be sold (handled in GUI).
+    if surveillance_tickers:
+        surv_symbols = {t.replace('.NS','').replace('.BO','') for t in surveillance_tickers}
+        m_surv = pd.Series(
+            [row_ticker.replace('.NS','').replace('.BO','') not in surv_symbols
+             for row_ticker in close_row.index],
+            index=close_row.index
+        )
+    else:
+        m_surv = pd.Series(True, index=close_row.index)
+
+    passed = valid & m_mcap & m_adv & m_vol & m_rsi & m_sma & m_high & m_cmf & m_surv
 
     # ── Near-miss filter masks (relaxed by 10% of each threshold) ─────────────
     nm_mcap = mcap_row.ge(NM_MIN_MCAP).fillna(False)
@@ -100,14 +115,15 @@ def run_screen(ind, config):
     nm_cmf  = cmf_row.ge(NM_CMF)
 
     rejections = {
-        'no_data'   : int((~valid).sum()),
-        'mcap'      : int((valid & ~m_mcap).sum()),
-        'adv'       : int((valid & m_mcap & ~m_adv).sum()),
-        'volatility': int((valid & m_mcap & m_adv & ~m_vol).sum()),
-        'rsi'       : int((valid & m_mcap & m_adv & m_vol & ~m_rsi).sum()),
-        'sma'       : int((valid & m_mcap & m_adv & m_vol & m_rsi & ~m_sma).sum()),
-        'high52w'   : int((valid & m_mcap & m_adv & m_vol & m_rsi & m_sma & ~m_high).sum()),
-        'cmf'       : int((valid & m_mcap & m_adv & m_vol & m_rsi & m_sma & m_high & ~m_cmf).sum()),
+        'no_data'     : int((~valid).sum()),
+        'mcap'        : int((valid & ~m_mcap).sum()),
+        'adv'         : int((valid & m_mcap & ~m_adv).sum()),
+        'volatility'  : int((valid & m_mcap & m_adv & ~m_vol).sum()),
+        'rsi'         : int((valid & m_mcap & m_adv & m_vol & ~m_rsi).sum()),
+        'sma'         : int((valid & m_mcap & m_adv & m_vol & m_rsi & ~m_sma).sum()),
+        'high52w'     : int((valid & m_mcap & m_adv & m_vol & m_rsi & m_sma & ~m_high).sum()),
+        'cmf'         : int((valid & m_mcap & m_adv & m_vol & m_rsi & m_sma & m_high & ~m_cmf).sum()),
+        'surveillance': int((valid & m_surv.eq(False)).sum()),
     }
 
     print(f'\n── Rejection waterfall ──────────')
@@ -133,6 +149,8 @@ def run_screen(ind, config):
         ('sma',  m_sma,  nm_sma),
         ('high', m_high, nm_high),
         ('cmf',  m_cmf,  nm_cmf),
+        # surveillance is a hard block — not relaxable for near-miss
+        ('surv', m_surv, m_surv),
     ]
 
     # For each valid ticker: count strict failures and relaxed failures
@@ -173,6 +191,7 @@ def run_screen(ind, config):
         'p_sma'           : m_sma[all_tickers].values,
         'p_high'          : m_high[all_tickers].values,
         'p_cmf'           : m_cmf[all_tickers].values,
+        'p_surv'          : m_surv[all_tickers].values,
         'passes_all'      : passed[all_tickers].values,
         # Near-miss fields
         'is_near_miss'    : [is_near_miss_map[t]     for t in all_tickers],
