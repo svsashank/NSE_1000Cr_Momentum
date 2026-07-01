@@ -968,6 +968,35 @@ function renderDeltaPhase1() {
     else portfolioMap[n] = r;
   });
 
+  // ── Gold allocation (self-contained — recomputed here since this is a
+  // separate function from renderDelta(), no shared closure scope) ──────────
+  const goldTargetPct   = parseFloat(document.getElementById('pGoldTargetPct')?.value   ?? 10);
+  const goldThreshPct   = parseFloat(document.getElementById('pGoldThresholdPct')?.value ?? 2.5);
+  const goldSymbol      = (document.getElementById('pGoldTicker')?.value ?? 'GOLDBEES').toUpperCase().replace(/\.NS$/i,'');
+  const goldHolding     = currentPortfolio.find(r => norm(r.ticker) === goldSymbol) ?? null;
+  const goldShares      = goldHolding?.shares ?? 0;
+  const goldPrice       = priceMap[goldSymbol] ?? goldHolding?.avg_cost ?? null;
+  const goldCurrVal     = goldPrice ? goldShares * goldPrice : 0;
+  const equityValGold   = Object.entries(portfolioMap).reduce((s,[t,p]) => s + ((priceMap[t]??p.avg_cost??0)*(p.shares??0)), 0);
+  const liquidValGold   = (priceMap[LIQUIDCASE] ?? liquidcaseHolding?.avg_cost ?? 0) * (liquidcaseHolding?.shares ?? 0);
+  const totalPortfolioVal = equityValGold + goldCurrVal + liquidValGold;
+  const goldTargetVal   = totalPortfolioVal * (goldTargetPct / 100);
+  const goldActualPct   = totalPortfolioVal > 0 ? (goldCurrVal / totalPortfolioVal * 100) : 0;
+  const goldDrift       = goldActualPct - goldTargetPct;
+  const goldNeedsRebal  = Math.abs(goldDrift) > goldThreshPct;
+  let goldAction = 'hold', goldDeltaShares = 0, goldDeltaVal = 0;
+  if (goldNeedsRebal && goldPrice) {
+    if (goldDrift < 0) {
+      goldAction      = 'buy';
+      goldDeltaShares = Math.floor((goldTargetVal - goldCurrVal) / goldPrice);
+      goldDeltaVal    = goldDeltaShares * goldPrice;
+    } else {
+      goldAction      = 'sell';
+      goldDeltaShares = Math.floor((goldCurrVal - goldTargetVal) / goldPrice);
+      goldDeltaVal    = goldDeltaShares * goldPrice;
+    }
+  }
+
   // Compute cash pool: sells + LIQUIDCASE + gold proceeds (if trimming gold)
   let cashPool = 0;
   const liquidPrice = priceMap[LIQUIDCASE] ?? liquidcaseHolding?.avg_cost ?? 0;
