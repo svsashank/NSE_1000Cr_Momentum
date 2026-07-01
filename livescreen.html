@@ -698,6 +698,52 @@ function renderDelta() {
     else { portfolioMap[n] = r; }
   });
 
+  // ── Gold allocation (GOLDBEES) ────────────────────────────────────────────
+  const goldTargetPct   = parseFloat(document.getElementById('pGoldTargetPct')?.value   ?? 10);
+  const goldThreshPct   = parseFloat(document.getElementById('pGoldThresholdPct')?.value ?? 2.5);
+  const goldSymbol      = (document.getElementById('pGoldTicker')?.value ?? 'GOLDBEES').toUpperCase().replace(/\.NS$/i,'');
+  const GOLDSYM         = goldSymbol;
+
+  // Find gold holding in portfolio
+  const goldHolding = currentPortfolio.find(r => norm(r.ticker) === GOLDSYM) ?? null;
+  const goldShares  = goldHolding?.shares ?? 0;
+  const goldPrice   = priceMap[GOLDSYM] ?? goldHolding?.avg_cost ?? null;
+  const goldCurrVal = goldPrice ? goldShares * goldPrice : 0;
+
+  // Total portfolio MTM (equity + gold + liquidcase) — used to size gold target
+  const equityVal = Object.entries(portfolioMap).reduce((sum, [t, p]) => {
+    const price = priceMap[t] ?? p.avg_cost ?? 0;
+    return sum + (price * (p.shares ?? 0));
+  }, 0);
+  const liquidVal0 = (priceMap[LIQUIDCASE] ?? liquidcaseHolding?.avg_cost ?? 0) * (liquidcaseHolding?.shares ?? 0);
+  const totalPortfolioVal = equityVal + goldCurrVal + liquidVal0;
+
+  const goldTargetVal  = totalPortfolioVal * (goldTargetPct / 100);
+  const goldActualPct  = totalPortfolioVal > 0 ? (goldCurrVal / totalPortfolioVal * 100) : 0;
+  const goldDrift      = goldActualPct - goldTargetPct;  // positive = over-allocated
+  const goldNeedsRebal = Math.abs(goldDrift) > goldThreshPct;
+
+  // Gold action: buy (under), sell (over), hold (within threshold)
+  let goldAction    = 'hold';
+  let goldDeltaVal  = 0;   // positive = buy value, negative = sell value (proceeds to equity)
+  let goldDeltaShares = 0;
+
+  if (goldNeedsRebal && goldPrice) {
+    if (goldDrift < 0) {
+      // Under-allocated: buy more gold, funded from equity cash pool
+      goldAction      = 'buy';
+      goldDeltaVal    = goldTargetVal - goldCurrVal;
+      goldDeltaShares = Math.floor(goldDeltaVal / goldPrice);
+      goldDeltaVal    = goldDeltaShares * goldPrice;  // exact after flooring
+    } else {
+      // Over-allocated: sell excess gold, proceeds go to equity buys
+      goldAction      = 'sell';
+      goldDeltaVal    = goldCurrVal - goldTargetVal;
+      goldDeltaShares = Math.floor(goldDeltaVal / goldPrice);
+      goldDeltaVal    = goldDeltaShares * goldPrice;
+    }
+  }
+
   // Promotion candidates: universe beyond top 15, same eligibility (passes_all or is_near_miss in top 50)
   // already sorted by rank_score desc in latestUniverse
   const promotionPool = latestUniverse
