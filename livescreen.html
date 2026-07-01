@@ -1041,14 +1041,18 @@ function renderDeltaPhase1() {
   const holds = Object.entries(rebalState.actions).filter(([,v]) => v === 'hold').map(([k]) => k);
   const sells = Object.entries(rebalState.actions).filter(([,v]) => v === 'sell' || v === 'surv_sell').map(([k]) => k);
 
+  const survWarnSetDelta = new Set((window._latestFilters?.surveillance_warning_tickers || []).map(s => s.toUpperCase()));
   const actionBadge = (t, action) => {
     if (action === 'surv_sell') {
-      return `<span class="badge sell" style="cursor:not-allowed;user-select:none" title="Under NSE surveillance (BE/BZ/ST) — forced sell, cannot override">🚨 SELL</span>`;
+      return `<span class="badge sell" style="cursor:not-allowed;user-select:none" title="NSE GSM surveillance (BZ) — forced sell, cannot override">🚨 SELL</span>`;
     }
     const colors = { buy: 'var(--green)', hold: 'var(--accent)', sell: 'var(--red)', skip: 'var(--muted)' };
     const next = { sell: 'hold', hold: 'sell', buy: 'skip→next', skip: '' };
     const tip = next[action] ? `Click to → ${next[action]}` : '';
-    return `<span class="badge ${action}" style="cursor:pointer;user-select:none" onclick="toggleAction('${t}')" title="${tip}">${action}</span>`;
+    const warnBadge = survWarnSetDelta.has(t)
+      ? ` <span title="NSE trade-for-trade / short-term surveillance (BE/ST) — not blocked, review before acting" style="background:var(--yellow);color:#000;border-radius:3px;padding:0 4px;font-size:10px;font-weight:700">⚠</span>`
+      : '';
+    return `<span class="badge ${action}" style="cursor:pointer;user-select:none" onclick="toggleAction('${t}')" title="${tip}">${action}</span>${warnBadge}`;
   };
 
   const row = (t, action) => {
