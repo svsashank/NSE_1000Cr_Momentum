@@ -139,13 +139,11 @@ def main():
     # Try sources in order
     tickers = None
 
-    log.info('
-1️⃣  Trying NSE EQUITY_L.csv...')
+    log.info('\n1️⃣  Trying NSE EQUITY_L.csv...')
     tickers = fetch_from_nse_csv()
 
     if not tickers:
-        log.info('
-2️⃣  Trying nsetools...')
+        log.info('\n2️⃣  Trying nsetools...')
         try:
             import subprocess
             subprocess.run([sys.executable, '-m', 'pip', 'install', 'nsetools', '-q'], check=True)
@@ -154,8 +152,7 @@ def main():
         tickers = fetch_from_nsetools()
 
     if not tickers:
-        log.warning('
-3️⃣  Both sources failed — keeping existing universe')
+        log.warning('\n3️⃣  Both sources failed — keeping existing universe')
         tickers = load_existing()
         if not tickers:
             log.error('  ❌ No fallback available. Exiting.')
@@ -168,8 +165,7 @@ def main():
     tickers = sorted(set(tickers))
 
     # Sanity check
-    log.info('
-🔍 Running sanity checks...')
+    log.info('\n🔍 Running sanity checks...')
     ok = sanity_check(tickers)
 
     # Diff summary
@@ -177,8 +173,7 @@ def main():
     new_set      = set(tickers)
     added   = new_set - existing_set
     removed = existing_set - new_set
-    log.info(f'
-📊 Universe delta:')
+    log.info(f'\n📊 Universe delta:')
     log.info(f'   Before : {len(existing)} tickers')
     log.info(f'   After  : {len(tickers)} tickers')
     log.info(f'   Added  : {len(added)}')
@@ -191,8 +186,7 @@ def main():
     # Write output
     with open(UNIVERSE_FILE, 'w') as f:
         json.dump(tickers, f, indent=None, separators=(',', ':'))
-    log.info(f'
-✅ Wrote {len(tickers)} tickers to {UNIVERSE_FILE}')
+    log.info(f'\n✅ Wrote {len(tickers)} tickers to {UNIVERSE_FILE}')
 
     if not ok:
         log.warning('⚠ Sanity check failed but file written — review before relying on this run')
