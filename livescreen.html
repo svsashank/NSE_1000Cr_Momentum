@@ -4,12 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NSE Momentum Screener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@1,6..72,400..600&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
-    --border: #2e3250; --accent: #5b8fff; --accent2: #7c6fff;
-    --green: #3ecf8e; --red: #f66; --yellow: #f5c842;
-    --text: #e8eaf0; --muted: #7b82a8; --small: 13px;
+    --bg: #0e1013; --surface: #14161b; --surface2: #1a1d24;
+    --border: #262a33; --accent: #c9a961; --accent2: #b08d4d;
+    --green: #4ec98f; --red: #e0655f; --yellow: #d9a13d;
+    --text: #e8e4d8; --muted: #8b8f9a; --small: 13px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
@@ -284,10 +287,85 @@
     border-radius: 3px; background: linear-gradient(180deg, var(--accent), var(--accent2));
   }
 
+
+/* ═══ Refinement layer — financial-press quant terminal ═══ */
+:root { --font-ui:'Instrument Sans',system-ui,sans-serif; --font-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,monospace; --font-display:'Newsreader',Georgia,serif; --acc:#c9a961; --acc2:#b08d4d; }
+html { color-scheme: dark; }
+body {
+  font-family: var(--font-ui);
+  background:
+    radial-gradient(900px 480px at 85% -140px, color-mix(in srgb, var(--acc) 6%, transparent), transparent 70%),
+    var(--bg);
+}
+/* Masthead */
+.header h1, header h1 {
+  font-family: var(--font-display); font-style: italic; font-weight: 500;
+  font-size: 21px; letter-spacing: .01em; color: var(--text);
+  background: none; -webkit-text-fill-color: var(--text);
+}
+.header h1 span, header h1 span {
+  font-family: var(--font-mono); font-style: normal; font-weight: 500;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .18em;
+  color: var(--acc); border: 1px solid color-mix(in srgb, var(--acc) 35%, transparent);
+  border-radius: 3px; padding: 3px 8px; margin-left: 10px; vertical-align: 3px;
+  -webkit-text-fill-color: var(--acc);
+}
+.header, header {
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--acc) 16%, transparent);
+}
+.header .subtitle, header .run-meta, .run-meta { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; }
+/* Tabs */
+.tabs .tab, nav button {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .12em;
+}
+/* Section labels */
+.section-title, .table-title {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .16em; color: var(--muted);
+}
+.section-title::before, .table-title::before {
+  content: ''; display: inline-block; width: 14px; height: 1px;
+  background: var(--acc); vertical-align: middle; margin-right: 8px;
+}
+/* Tables: mono numerals, hairline rows, accent hover wash */
+table th {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .13em; color: var(--muted);
+}
+table td { font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+tbody tr:hover td { background: color-mix(in srgb, var(--acc) 5%, transparent); }
+.ticker-cell { font-family: var(--font-mono); font-weight: 600; letter-spacing: .02em; }
+.rank { font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: 15px; color: var(--acc); }
+/* Stat values */
+.stat .val, .stat-card .value, .stat .value { font-family: var(--font-mono); font-weight: 500; letter-spacing: -0.01em; }
+.stat .lbl, .stat-card .label {
+  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+}
+/* Primary action buttons: brushed metal on ink */
+#runBtn, .run-btn, .btn, button.run-btn {
+  background: var(--acc); background-image: none; color: #101216;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  letter-spacing: .07em; text-transform: uppercase; border: none; border-radius: 4px;
+}
+#runBtn:hover:not(:disabled), .run-btn:hover:not(:disabled), .btn:hover:not(:disabled) { filter: brightness(1.09); }
+#runBtn .spinner { border-color: rgba(0,0,0,.25); border-top-color: #101216; }
+/* Inputs */
+input, select, textarea { font-family: var(--font-mono); font-size: 12.5px; }
+input:focus, select:focus, textarea:focus { border-color: var(--acc) !important; }
+/* Badges & pills */
+.badge, .params-pill, .chip, .action-pill, .config-pill { font-family: var(--font-mono); letter-spacing: .03em; }
+/* Scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #262a33; border-radius: 5px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+/* Accessibility */
+:focus-visible { outline: 1px solid var(--acc); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -299,7 +377,7 @@ function dbg(msg) {
   if (!DEBUG) return;
   const t = document.createElement('div');
   t.textContent = '⚠ ' + msg;
-  t.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1e293b;color:#f87171;font-size:11px;padding:8px 14px;border-radius:8px;border:1px solid #f87171;z-index:9999;max-width:90vw;word-break:break-all';
+  t.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1a1d24;color:#e0655f;font-size:11px;padding:8px 14px;border-radius:8px;border:1px solid #e0655f;z-index:9999;max-width:90vw;word-break:break-all';
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 10000);
 }
@@ -702,7 +780,7 @@ function renderTop15(runDate, filters) {
     const nmFilter = r.near_miss_filter ? r.near_miss_filter.toUpperCase() : '';
     const rowStyle = isNM ? 'background:rgba(245,180,0,.07);' : '';
     const nmBadge  = isNM
-      ? `<span title="Near-miss: ${nmFilter} within 10% of threshold" style="margin-left:6px;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(245,180,0,.2);color:#f5b800;">~${nmFilter}</span>`
+      ? `<span title="Near-miss: ${nmFilter} within 10% of threshold" style="margin-left:6px;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(245,180,0,.2);color:#d9a13d;">~${nmFilter}</span>`
       : '';
     html += `<tr style="${rowStyle}">
       <td class="rank">${r.index ?? i+1}</td>
@@ -1656,7 +1734,7 @@ function renderScreenerTable(rows) {
   document.getElementById('scr-summary').innerHTML =
     chip('Showing', rows.length + ' of ' + total, 'var(--text)') +
     chip('Passes all', passing, 'var(--green)') +
-    chip('Near miss', nearMiss, '#f59e0b') +
+    chip('Near miss', nearMiss, '#d9a13d') +
     `<span style="font-size:11px;color:var(--muted);margin-left:4px;">· sorted by <strong>${scrSortCol}</strong> ${scrSortAsc ? '▲' : '▼'}</span>`;
 
   if (!rows.length) {
@@ -1698,10 +1776,10 @@ function renderScreenerTable(rows) {
     const inPassing = passingSet.has(r.ticker);
     const failures  = countFailures(r);
     let rowStyle = '', tickerStyle = '', badge = '';
-    if (inTopN && r.is_near_miss) { rowStyle = 'background:rgba(245,180,0,.09);'; tickerStyle = 'color:#f5b800;'; badge = ' ~'; }
+    if (inTopN && r.is_near_miss) { rowStyle = 'background:rgba(245,180,0,.09);'; tickerStyle = 'color:#d9a13d;'; badge = ' ~'; }
     else if (inTopN)      { rowStyle = 'background:rgba(62,207,142,.07);'; tickerStyle = 'color:var(--green);'; badge = ' ★'; }
     else if (inPassing) { rowStyle = 'background:rgba(91,143,255,.05);'; tickerStyle = 'color:var(--accent);'; }
-    else if (r.is_near_miss) { rowStyle = 'background:rgba(245,180,0,.05);'; tickerStyle = 'color:#f5b800;'; }
+    else if (r.is_near_miss) { rowStyle = 'background:rgba(245,180,0,.05);'; tickerStyle = 'color:#d9a13d;'; }
     else if (failures === 1) { rowStyle = 'background:rgba(245,158,11,.04);'; }
 
     const filterCells = filterKeys.map((k, ki) => {
