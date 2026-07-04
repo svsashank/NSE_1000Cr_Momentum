@@ -4,15 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NSE Momentum Backtest</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@1,6..72,400..600&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0e1013; --surface: #14161b; --surface2: #1a1d24;
-    --border: #262a33; --accent: #c9a961; --accent2: #b08d4d;
-    --green: #4ec98f; --red: #e0655f; --yellow: #d9a13d;
-    --text: #e8e4d8; --muted: #8b8f9a; --small: 13px;
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --border: #2e3250; --accent: #5b8fff; --accent2: #7c6fff;
+    --green: #3ecf8e; --red: #f66; --yellow: #f5c842;
+    --text: #e8eaf0; --muted: #7b82a8; --small: 13px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
@@ -81,11 +78,11 @@
   .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
   .badge.buy  { background: rgba(62,207,142,.15); color: var(--green); }
   .badge.sell, .badge.sell_cash { background: rgba(255,102,102,.15); color: var(--red); }
-  .badge.trim { background: rgba(217,161,61,.15); color: var(--yellow); }
+  .badge.trim { background: rgba(245,200,66,.15); color: var(--yellow); }
 
   .empty { color: var(--muted); padding: 32px; text-align: center; }
   .alert { padding: 12px 16px; border-radius: 8px; font-size: var(--small); margin-bottom: 16px; }
-  .alert.info { background: rgba(201,169,97,.1); border: 1px solid rgba(201,169,97,.3); color: var(--accent); }
+  .alert.info { background: rgba(91,143,255,.1); border: 1px solid rgba(91,143,255,.3); color: var(--accent); }
 
   .tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
   .tab { padding: 9px 16px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: var(--small); font-weight: 500; color: var(--muted); border: 1px solid transparent; border-bottom: none; }
@@ -93,116 +90,6 @@
   .tab:hover:not(.active) { color: var(--text); }
   .subpanel { display: none; }
   .subpanel.active { display: block; }
-
-/* ═══ Refinement layer — financial-press quant terminal ═══ */
-:root { --font-ui:'Instrument Sans',system-ui,sans-serif; --font-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,monospace; --font-display:'Newsreader',Georgia,serif; --acc:#c9a961; --acc2:#b08d4d; }
-html { color-scheme: dark; }
-body {
-  font-family: var(--font-ui);
-  background:
-    radial-gradient(900px 480px at 85% -140px, color-mix(in srgb, var(--acc) 6%, transparent), transparent 70%),
-    var(--bg);
-}
-/* Masthead */
-.header h1, header h1 {
-  font-family: var(--font-display); font-style: italic; font-weight: 500;
-  font-size: 21px; letter-spacing: .01em; color: var(--text);
-  background: none; -webkit-text-fill-color: var(--text);
-}
-.header h1 span, header h1 span {
-  font-family: var(--font-mono); font-style: normal; font-weight: 500;
-  font-size: 10px; text-transform: uppercase; letter-spacing: .18em;
-  color: var(--acc); border: 1px solid color-mix(in srgb, var(--acc) 35%, transparent);
-  border-radius: 3px; padding: 3px 8px; margin-left: 10px; vertical-align: 3px;
-  -webkit-text-fill-color: var(--acc);
-}
-.header, header {
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--acc) 16%, transparent);
-}
-.header .subtitle, header .run-meta, .run-meta { font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; }
-/* Tabs */
-.tabs .tab, nav button {
-  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
-  text-transform: uppercase; letter-spacing: .12em;
-}
-/* Section labels */
-.section-title, .table-title {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
-  text-transform: uppercase; letter-spacing: .16em; color: var(--muted);
-}
-.section-title::before, .table-title::before {
-  content: ''; display: inline-block; width: 14px; height: 1px;
-  background: var(--acc); vertical-align: middle; margin-right: 8px;
-}
-/* Tables: mono numerals, hairline rows, accent hover wash */
-table th {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
-  text-transform: uppercase; letter-spacing: .13em; color: var(--muted);
-}
-table td { font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
-tbody tr:hover td { background: color-mix(in srgb, var(--acc) 5%, transparent); }
-.ticker-cell { font-family: var(--font-mono); font-weight: 600; letter-spacing: .02em; }
-.rank { font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: 15px; color: var(--acc); }
-/* Stat values */
-.stat .val, .stat-card .value, .stat .value { font-family: var(--font-mono); font-weight: 500; letter-spacing: -0.01em; }
-.stat .lbl, .stat-card .label {
-  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
-}
-/* Primary action buttons: brushed metal on ink */
-#runBtn, .run-btn, .btn, button.run-btn {
-  background: var(--acc); background-image: none; color: #101216;
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .07em; text-transform: uppercase; border: none; border-radius: 4px;
-}
-#runBtn:hover:not(:disabled), .run-btn:hover:not(:disabled), .btn:hover:not(:disabled) { filter: brightness(1.09); }
-#runBtn .spinner { border-color: rgba(0,0,0,.25); border-top-color: #101216; }
-/* Inputs */
-input, select, textarea { font-family: var(--font-mono); font-size: 12.5px; }
-input:focus, select:focus, textarea:focus { border-color: var(--acc) !important; }
-/* Badges & pills */
-.badge, .params-pill, .chip, .action-pill, .config-pill { font-family: var(--font-mono); letter-spacing: .03em; }
-/* Scrollbars */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #262a33; border-radius: 5px; border: 2px solid var(--bg); }
-::-webkit-scrollbar-track { background: transparent; }
-/* Accessibility */
-:focus-visible { outline: 1px solid var(--acc); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
-}
-
-/* ═══ Mobile & robustness hardening ═══ */
-/* Data columns read in high-contrast ivory; accent is reserved for chrome */
-.ticker-cell { color: var(--text) !important; font-weight: 500; }
-td.rank, .rank {
-  font-family: var(--font-mono); font-style: normal;
-  font-size: 11px; color: var(--muted);
-}
-/* Action buttons: explicit dark label, fixed height, no legacy glow */
-#runBtn, .run-btn, .btn { min-height: 40px; box-shadow: none; }
-#runBtn, #runBtn *, .run-btn, .run-btn *, button.btn, button.btn * {
-  color: #14161b !important; -webkit-text-fill-color: #14161b !important;
-}
-#runBtn .spinner { border-color: rgba(0,0,0,.25); border-top-color: #14161b; }
-.run-status { color: var(--muted); }
-/* Simple rgba fallbacks replace color-mix in critical paths */
-body { background: radial-gradient(900px 480px at 85% -140px, rgba(201,169,97,.06), transparent 70%), var(--bg); }
-.header h1 span, header h1 span { border-color: rgba(201,169,97,.35); }
-.header, header { box-shadow: 0 1px 0 rgba(201,169,97,.16); }
-tbody tr:hover td { background: rgba(201,169,97,.05); }
-/* Small screens */
-@media (max-width: 640px) {
-  .header h1, header h1 { font-size: 19px; line-height: 1.3; }
-  .header h1 span, header h1 span {
-    display: inline-block; margin: 6px 8px 0 0; vertical-align: 0;
-  }
-  th { padding: 9px 8px; }
-  td { padding: 10px 8px; font-size: 12px; }
-  .tbl-wrap, .table-wrap, .chart-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .tbl-wrap table, .table-wrap table { min-width: 660px; }
-  #runBtn, .run-btn { width: 100%; justify-content: center; }
-}
 </style>
 </head>
 <body>
@@ -492,7 +379,7 @@ function drawEquityCurve(canvas, curve) {
   const yScale = (h - pad*2) / ((max - min) || 1);
 
   // Grid
-  ctx.strokeStyle = '#262a33';
+  ctx.strokeStyle = '#2e3250';
   ctx.lineWidth = 1;
   for (let i=0;i<=4;i++) {
     const y = pad + (h-pad*2) * i/4;
@@ -500,7 +387,7 @@ function drawEquityCurve(canvas, curve) {
   }
 
   // Line
-  ctx.strokeStyle = '#c9a961';
+  ctx.strokeStyle = '#5b8fff';
   ctx.lineWidth = 2;
   ctx.beginPath();
   curve.forEach((d, i) => {
@@ -514,11 +401,11 @@ function drawEquityCurve(canvas, curve) {
   ctx.lineTo(pad + (curve.length-1)*xStep, h-pad);
   ctx.lineTo(pad, h-pad);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(201,169,97,.08)';
+  ctx.fillStyle = 'rgba(91,143,255,.08)';
   ctx.fill();
 
   // Labels
-  ctx.fillStyle = '#8b8f9a';
+  ctx.fillStyle = '#7b82a8';
   ctx.font = '11px Inter, sans-serif';
   ctx.fillText(`$${(max).toLocaleString(undefined,{maximumFractionDigits:0})}`, 4, pad+4);
   ctx.fillText(`$${(min).toLocaleString(undefined,{maximumFractionDigits:0})}`, 4, h-pad+2);
@@ -543,7 +430,7 @@ function renderRun(run) {
     &nbsp;·&nbsp; Capital: ${CURRENCY}${Number(run.initial_capital).toLocaleString()}
     &nbsp;·&nbsp; Run at ${new Date(run.triggered_at).toLocaleString()}
   </div>
-  ${(run.snapshots||[]).filter(s=>s.stocks_screened===0).length > 0 ? `<div class="alert" style="background:rgba(217,161,61,.1);border:1px solid rgba(217,161,61,.3);color:var(--yellow)">⚠ ${(run.snapshots||[]).filter(s=>s.stocks_screened===0).length} early periods show 0 stocks screened — SMA200 requires ~10 months of prior history to compute. Re-run history refresh with 7 years, then backtest will have data from the first period.</div>` : ''}
+  ${(run.snapshots||[]).filter(s=>s.stocks_screened===0).length > 0 ? `<div class="alert" style="background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);color:var(--yellow)">⚠ ${(run.snapshots||[]).filter(s=>s.stocks_screened===0).length} early periods show 0 stocks screened — SMA200 requires ~10 months of prior history to compute. Re-run history refresh with 7 years, then backtest will have data from the first period.</div>` : ''}
   <div class="stats-grid">
     <div class="stat"><div class="val ${cagrCls}">${fmtPct(stats.cagr)}</div><div class="lbl">CAGR</div></div>
     <div class="stat"><div class="val ${cagrCls}">${fmtPct(stats.total_return)}</div><div class="lbl">Total Return</div></div>
