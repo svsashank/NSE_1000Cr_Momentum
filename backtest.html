@@ -81,11 +81,11 @@
   .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
   .badge.buy  { background: rgba(62,207,142,.15); color: var(--green); }
   .badge.sell, .badge.sell_cash { background: rgba(255,102,102,.15); color: var(--red); }
-  .badge.trim { background: rgba(245,200,66,.15); color: var(--yellow); }
+  .badge.trim { background: rgba(217,161,61,.15); color: var(--yellow); }
 
   .empty { color: var(--muted); padding: 32px; text-align: center; }
   .alert { padding: 12px 16px; border-radius: 8px; font-size: var(--small); margin-bottom: 16px; }
-  .alert.info { background: rgba(91,143,255,.1); border: 1px solid rgba(91,143,255,.3); color: var(--accent); }
+  .alert.info { background: rgba(201,169,97,.1); border: 1px solid rgba(201,169,97,.3); color: var(--accent); }
 
   .tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
   .tab { padding: 9px 16px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: var(--small); font-weight: 500; color: var(--muted); border: 1px solid transparent; border-bottom: none; }
@@ -170,6 +170,38 @@ input:focus, select:focus, textarea:focus { border-color: var(--acc) !important;
 :focus-visible { outline: 1px solid var(--acc); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ═══ Mobile & robustness hardening ═══ */
+/* Data columns read in high-contrast ivory; accent is reserved for chrome */
+.ticker-cell { color: var(--text) !important; font-weight: 500; }
+td.rank, .rank {
+  font-family: var(--font-mono); font-style: normal;
+  font-size: 11px; color: var(--muted);
+}
+/* Action buttons: explicit dark label, fixed height, no legacy glow */
+#runBtn, .run-btn, .btn { min-height: 40px; box-shadow: none; }
+#runBtn, #runBtn *, .run-btn, .run-btn *, button.btn, button.btn * {
+  color: #14161b !important; -webkit-text-fill-color: #14161b !important;
+}
+#runBtn .spinner { border-color: rgba(0,0,0,.25); border-top-color: #14161b; }
+.run-status { color: var(--muted); }
+/* Simple rgba fallbacks replace color-mix in critical paths */
+body { background: radial-gradient(900px 480px at 85% -140px, rgba(201,169,97,.06), transparent 70%), var(--bg); }
+.header h1 span, header h1 span { border-color: rgba(201,169,97,.35); }
+.header, header { box-shadow: 0 1px 0 rgba(201,169,97,.16); }
+tbody tr:hover td { background: rgba(201,169,97,.05); }
+/* Small screens */
+@media (max-width: 640px) {
+  .header h1, header h1 { font-size: 19px; line-height: 1.3; }
+  .header h1 span, header h1 span {
+    display: inline-block; margin: 6px 8px 0 0; vertical-align: 0;
+  }
+  th { padding: 9px 8px; }
+  td { padding: 10px 8px; font-size: 12px; }
+  .tbl-wrap, .table-wrap, .chart-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tbl-wrap table, .table-wrap table { min-width: 660px; }
+  #runBtn, .run-btn { width: 100%; justify-content: center; }
 }
 </style>
 </head>
@@ -482,7 +514,7 @@ function drawEquityCurve(canvas, curve) {
   ctx.lineTo(pad + (curve.length-1)*xStep, h-pad);
   ctx.lineTo(pad, h-pad);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(91,143,255,.08)';
+  ctx.fillStyle = 'rgba(201,169,97,.08)';
   ctx.fill();
 
   // Labels
@@ -511,7 +543,7 @@ function renderRun(run) {
     &nbsp;·&nbsp; Capital: ${CURRENCY}${Number(run.initial_capital).toLocaleString()}
     &nbsp;·&nbsp; Run at ${new Date(run.triggered_at).toLocaleString()}
   </div>
-  ${(run.snapshots||[]).filter(s=>s.stocks_screened===0).length > 0 ? `<div class="alert" style="background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);color:var(--yellow)">⚠ ${(run.snapshots||[]).filter(s=>s.stocks_screened===0).length} early periods show 0 stocks screened — SMA200 requires ~10 months of prior history to compute. Re-run history refresh with 7 years, then backtest will have data from the first period.</div>` : ''}
+  ${(run.snapshots||[]).filter(s=>s.stocks_screened===0).length > 0 ? `<div class="alert" style="background:rgba(217,161,61,.1);border:1px solid rgba(217,161,61,.3);color:var(--yellow)">⚠ ${(run.snapshots||[]).filter(s=>s.stocks_screened===0).length} early periods show 0 stocks screened — SMA200 requires ~10 months of prior history to compute. Re-run history refresh with 7 years, then backtest will have data from the first period.</div>` : ''}
   <div class="stats-grid">
     <div class="stat"><div class="val ${cagrCls}">${fmtPct(stats.cagr)}</div><div class="lbl">CAGR</div></div>
     <div class="stat"><div class="val ${cagrCls}">${fmtPct(stats.total_return)}</div><div class="lbl">Total Return</div></div>
