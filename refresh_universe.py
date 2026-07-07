@@ -10,8 +10,12 @@ Strategy (3-level fallback):
   3. Keep existing      — if both fail, abort with non-zero exit so the workflow
                           flags as failed (never silently shrink the universe)
 
-EQ series only: filters out BE (trade-for-trade), SM (SME), BZ (surveillance),
-ST, TB series — these are illiquid / restricted and poison a momentum screener.
+Includes EQ, BE, BZ, ST series — main-board equity plus trade-for-trade and
+surveillance-flagged stocks. These are still real, tradeable listings; the
+screener's own surveillance filter (core/screener_engine.py) is responsible
+for hard-blocking BZ from Top 15/portfolio and badging BE/ST, while still
+showing all of them in the Full Universe view. Only SM (SME board) and TB
+are excluded here, since those are a genuinely different market segment.
 
 The script also cross-checks KPL.NS and a few other known stocks to validate
 the output before committing.
@@ -28,8 +32,12 @@ UNIVERSE_FILE = os.path.join(os.path.dirname(__file__), 'nse_universe.json')
 # Known tickers that MUST appear in the output (sanity check)
 MUST_HAVE = ['RELIANCE.NS', 'TCS.NS', 'INFY.NS', 'HDFCBANK.NS', 'KPL.NS']
 
-# NSE series to include (EQ = main board equity only)
-VALID_SERIES = {'EQ'}
+# NSE series to include: EQ (main board) plus BE/BZ/ST (trade-for-trade /
+# surveillance-flagged) — these are still tradeable and must be visible in
+# the Full Universe view; screener_engine.py handles surveillance-based
+# hard-blocking/badging downstream. SM (SME board) and TB are excluded as
+# a genuinely different market segment.
+VALID_SERIES = {'EQ', 'BE', 'BZ', 'ST'}
 
 
 # ── Source 1: NSE EQUITY_L.csv ────────────────────────────────────────────────
@@ -69,7 +77,7 @@ def fetch_from_nse_csv():
                     tickers.append(f'{symbol}.NS')
 
             if len(tickers) > 500:
-                log.info(f'  ✅ NSE CSV: {len(tickers)} EQ-series tickers')
+                log.info(f'  ✅ NSE CSV: {len(tickers)} tickers (EQ/BE/BZ/ST)')
                 return sorted(set(tickers))
             else:
                 log.warning(f'  ⚠ Too few tickers ({len(tickers)}) from {url} — skipping')
