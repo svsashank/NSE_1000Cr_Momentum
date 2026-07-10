@@ -27,15 +27,19 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install yfinance
+        run: pip install yfinance nsetools
 
       - name: Fetch shares outstanding
         run: python refresh_shares.py
+
+      - name: Refresh NSE universe (EQ/BE/BZ/ST)
+        run: python refresh_universe.py
+        continue-on-error: true
 
       - name: Commit updated cache
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add shares_outstanding.json
-          git diff --staged --quiet || git commit -m "Weekly shares outstanding refresh"
+          git add shares_outstanding.json nse_universe.json
+          git diff --staged --quiet || git commit -m "Weekly universe + shares outstanding refresh"
           git push
