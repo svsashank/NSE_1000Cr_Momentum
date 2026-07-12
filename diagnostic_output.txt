@@ -1,0 +1,34 @@
+Fetch window: 2025-01-10 -> 2026-07-14
+
+
+=== STLTECH.NS ===
+  total rows: 373
+  non-null Close rows: 373
+  first date: 2025-01-10
+  last date : 2026-07-10
+  max gap between consecutive rows (days): 4.0
+  ERROR: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+
+=== STLNETWORK.NS ===
+  total rows: 212
+  non-null Close rows: 212
+  first date: 2025-09-04
+  last date : 2026-07-10
+  max gap between consecutive rows (days): 4.0
+  ERROR: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+
+=== SIGMAADV.NS ===
+  total rows: 372
+  non-null Close rows: 372
+  first date: 2025-01-10
+  last date : 2026-07-10
+  max gap between consecutive rows (days): 4.0
+  ERROR: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+
+=== UFBL.NS ===
+  total rows: 371
+  non-null Close rows: 371
+  first date: 2025-01-10
+  last date : 2026-07-10
+  max gap between consecutive rows (days): 4.0
+  ERROR: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
