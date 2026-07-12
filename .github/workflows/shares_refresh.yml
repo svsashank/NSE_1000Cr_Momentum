@@ -29,12 +29,8 @@ jobs:
       - name: Install dependencies
         run: pip install yfinance nsetools
 
-      - name: Fetch shares outstanding
+      - name: Fetch shares outstanding (also refreshes universe internally)
         run: python refresh_shares.py
-
-      - name: Refresh NSE universe (EQ/BE/BZ/ST)
-        run: python refresh_universe.py
-        continue-on-error: true
 
       - name: Commit updated cache
         run: |
