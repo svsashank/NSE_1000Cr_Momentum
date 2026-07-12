@@ -1,9 +1,0 @@
-Full universe: 2384 tickers
-available after fetch: 2384/2384
-STLTECH.NS in available: True
-
-STLTECH.NS final row:
-  close: 543.0499877929688
-  sma21: 595.8095209030878
-  sma200: 238.29434886932373
-  WOULD BE VALID: True
