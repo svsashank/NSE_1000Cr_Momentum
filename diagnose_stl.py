@@ -1,45 +1,53 @@
 """
-Reproduce the EXACT production batch fetch (batch_size=50) that contains
-STLTECH.NS, to see if it's a batch-fetch casualty rather than a genuine
-data-history problem (single-ticker fetch showed 373/373 clean rows).
+Full-scale reproduction of screener.py's exact pipeline (fetch_ohlcv on the
+FULL 2384-ticker universe, then compute_indicators) to see whether STLTECH
+ends up in `valid` or `no_data_tickers` for real, at production scale —
+rather than in an isolated 50-ticker batch test.
 """
 import json
-import pandas as pd
-from datetime import datetime, timedelta
+import numpy as np
 from core.data_fetcher import fetch_ohlcv
+from core.indicators import compute_indicators
 
 with open('nse_universe.json') as f:
-    universe = json.load(f)
+    tickers = json.load(f)
 
-idx = universe.index('STLTECH.NS')
-batch_start = (idx // 50) * 50
-batch = universe[batch_start:batch_start + 50]
+with open('config.json') as f:
+    CONFIG = json.load(f)
 
-lines = []
-lines.append(f'Testing production batch containing STLTECH.NS ({len(batch)} tickers)')
-lines.append(f'Batch: {batch}\n')
+with open('shares_outstanding.json') as f:
+    shares_data = json.load(f)['shares']
 
-raw, available = fetch_ohlcv(batch, lookback_days=550, batch_size=50, recover_time_budget=120)
+lines = [f'Full universe: {len(tickers)} tickers']
 
-lines.append(f'\navailable set size: {len(available)}/{len(batch)}')
+raw, available = fetch_ohlcv(tickers, lookback_days=CONFIG['lookback_days'],
+                              batch_size=50, recover_time_budget=600)
+screen_tickers = [t for t in tickers if t in available]
+lines.append(f'available after fetch: {len(available)}/{len(tickers)}')
 lines.append(f'STLTECH.NS in available: {"STLTECH.NS" in available}')
-lines.append(f'STLNETWORK.NS in available: {"STLNETWORK.NS" in available}')
-missing = [t for t in batch if t not in available]
-lines.append(f'missing from batch: {missing}')
 
-if 'STLTECH.NS' in raw['Close'].columns:
-    close = raw['Close']['STLTECH.NS'].dropna()
-    lines.append(f'\nSTLTECH.NS in raw Close columns: True')
-    lines.append(f'  non-null rows: {len(close)}')
-    lines.append(f'  last date: {close.index.max()}')
-    sma200 = close.rolling(200).mean()
-    lines.append(f'  SMA200 last value: {sma200.iloc[-1]}')
-    lines.append(f'  SMA200 non-null count: {sma200.notna().sum()}')
+# Build mcap matrix same way screener.py does
+import pandas as pd
+close_for_mcap = raw['Close'][[t for t in screen_tickers if t in raw['Close'].columns]].astype(float).ffill(limit=3)
+shares_arr = np.array([float(shares_data.get(t, 0)) for t in close_for_mcap.columns], dtype=float)
+mcap_matrix = close_for_mcap.mul(shares_arr / 1e7, axis=1)  # approx, crore
+
+ind = compute_indicators(raw, mcap_matrix, screen_tickers, CONFIG)
+
+close_row = ind['close'].iloc[-1]
+sma_s_row = ind['sma_short'].iloc[-1]
+sma_l_row = ind['sma_long'].iloc[-1]
+
+if 'STLTECH.NS' in close_row.index:
+    lines.append(f'\nSTLTECH.NS final row:')
+    lines.append(f'  close: {close_row["STLTECH.NS"]}')
+    lines.append(f'  sma21: {sma_s_row["STLTECH.NS"]}')
+    lines.append(f'  sma200: {sma_l_row["STLTECH.NS"]}')
+    valid = pd.notna(close_row["STLTECH.NS"]) and pd.notna(sma_s_row["STLTECH.NS"]) and pd.notna(sma_l_row["STLTECH.NS"])
+    lines.append(f'  WOULD BE VALID: {valid}')
 else:
-    lines.append(f'\nSTLTECH.NS NOT in raw Close columns at all (dropped during batch/concat)')
-    lines.append(f'Actual columns present: {sorted(raw["Close"].columns.tolist())}')
+    lines.append(f'\nSTLTECH.NS NOT in ind[\"close\"] columns at all')
 
 with open('diagnostic_output.txt', 'w') as f:
     f.write('\n'.join(lines))
-
 print('\n'.join(lines))
