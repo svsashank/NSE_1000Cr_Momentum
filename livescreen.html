@@ -324,6 +324,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.title = `${label} · NSE Momentum`;
   const b = document.getElementById('ownerBadge');
   if (b) b.textContent = `— ${label}'s portfolio`;
+  const hp = document.getElementById('headerOwner');
+  if (hp) { hp.textContent = `\uD83D\uDC64 ${label}`; hp.style.display = 'inline-block'; }
 });
 function showOwnerChooser() {
   const btns = KNOWN_USERS.map(u => {
@@ -342,6 +344,7 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
 
 <div class="header">
   <h1>NSE Momentum Screener <span>· Full Universe</span></h1>
+  <span id="headerOwner" style="display:none;padding:4px 14px;border-radius:999px;background:var(--accent,#2563eb);color:#fff;font-weight:700;font-size:14px;letter-spacing:.3px;white-space:nowrap"></span>
   <a href="backtest.html" class="btn-sm" style="text-decoration:none;color:var(--text)">📊 Backtest</a>
 
   <!-- PAT input (session-only, never stored) -->
