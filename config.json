@@ -3,7 +3,7 @@
   "portfolio_size": 15,
   "min_mcap": 1000,
   "min_adv": 10,
-  "max_volatility": 0.75,
+  "max_volatility": 0.8,
   "rsi_threshold": 50,
   "max_from_high": 0.25,
   "sma_short": 21,
@@ -12,7 +12,7 @@
   "vol_lookback": 63,
   "adv_period": 63,
   "cmf_period": 20,
-  "cmf_threshold": 0.1,
+  "cmf_threshold": 0.05,
   "lookback_days": 550,
   "adv_divisor": 10000000.0,
   "anchors": [
