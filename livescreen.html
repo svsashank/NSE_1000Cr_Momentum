@@ -648,6 +648,7 @@ let latestTop15 = [];
 let latestPassing = [];
 let latestHoldZone = [];
 let latestUniverse = [];
+let velocityMap = {};   // norm(ticker) -> rank_momentum row (independent of rank_score)
 let currentPortfolio = [];
 
 async function loadLatestScreen() {
@@ -693,6 +694,17 @@ async function loadLatestScreen() {
       }
     } catch(_) {
       latestUniverse = [];
+    }
+
+    // Rank velocity — separate, tiny table; never blocks the universe render.
+    try {
+      const nrm = t => t.replace(/\.(NS|BO)$/i, '').toUpperCase();
+      const vRows = await sb('rank_momentum?select=ticker,velocity,rank_chg,consistency,n_obs,current_rank');
+      velocityMap = {};
+      (vRows || []).forEach(v => { velocityMap[nrm(v.ticker)] = v; });
+      console.log('rank_momentum: ' + (vRows ? vRows.length : 0) + ' rows');
+    } catch(_) {
+      velocityMap = {};   // table may not exist yet — universe still renders
     }
     renderUniverse(run.run_date, run.filters);
 
@@ -811,6 +823,7 @@ function renderUniverse(runDate, filters) {
   <div class="tbl-wrap"><table>
   <thead><tr>
     <th>#</th><th>Ticker</th><th>Price</th><th>Rank Score</th>
+    <th title="Rank velocity — how fast this name is climbing the universe, in percent-of-universe per day (+ = rising). Independent of Rank Score; ordering is unchanged.">Velocity</th>
     <th>RSI</th><th>Vol %</th><th>ADV ₹Cr</th><th>CMF</th><th>MCap ₹Cr</th><th>% from 52W High</th>
     ${filterLabels.map(l => `<th>${l}</th>`).join('')}
   </tr></thead><tbody>`;
@@ -840,11 +853,30 @@ function renderUniverse(runDate, filters) {
       `<td style="text-align:center">${r[col] ? tick : cross}</td>`
     ).join('');
 
+    // Rank velocity — independent metric, does not affect ordering.
+    const vm = velocityMap[norm(r.ticker)];
+    let velCell;
+    if (!vm || vm.velocity == null) {
+      velCell = '<td style="text-align:right;color:var(--muted)">—</td>';
+    } else {
+      const v = vm.velocity;
+      const up = v > 0.02, down = v < -0.02;
+      const vcol = up ? 'var(--green)' : (down ? 'var(--red)' : 'var(--muted)');
+      const arrow = up ? '▲' : (down ? '▼' : '·');
+      const chg = (vm.rank_chg != null && vm.rank_chg !== 0)
+        ? ` <span style="color:var(--muted);font-size:11px">(${vm.rank_chg > 0 ? '+' : ''}${vm.rank_chg})</span>`
+        : '';
+      const cons = vm.consistency != null ? Math.round(vm.consistency * 100) + '%' : '—';
+      const title = `Velocity ${v.toFixed(3)} %-of-universe/day (+ = climbing) · net ${vm.rank_chg > 0 ? '+' : ''}${vm.rank_chg} positions over ${vm.n_obs} runs · consistency ${cons}`;
+      velCell = `<td style="text-align:right;color:${vcol}" title="${title}">${arrow} ${v.toFixed(2)}${chg}</td>`;
+    }
+
     html += `<tr style="${rowStyle}">
       <td class="rank">${i + 1}</td>
       <td class="ticker-cell" style="${tickerStyle}">${r.ticker}${tickerSuffix}${survBadge}</td>
       <td>₹${fmtNum(r.price)}</td>
       <td>${r.rank_score != null ? fmtNum(r.rank_score, 4) : '—'}</td>
+      ${velCell}
       <td>${fmtNum(r.rsi, 1)}</td>
       <td>${fmtNum(r.volatility_pct, 1)}%</td>
       <td>${fmtNum(r.adv_m, 1)}</td>

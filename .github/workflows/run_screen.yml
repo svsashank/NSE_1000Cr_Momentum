@@ -27,3 +27,12 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SCREEN_PARAMS: ${{ toJson(github.event.client_payload.params) }}
         run: python screener.py
+
+      - name: Compute rank velocity
+        # Independent add-on: reads the last N runs (incl. the one just pushed)
+        # and refreshes the rank_momentum table. Never fails the screen.
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python rank_velocity.py
