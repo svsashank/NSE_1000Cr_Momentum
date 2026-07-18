@@ -1,0 +1,30 @@
+name: Rank Velocity
+
+# Standalone trigger — recompute rank_momentum from existing screen_runs history
+# without running a full screen. Useful for the initial backfill right after the
+# rank_momentum table is created, and for ad-hoc refreshes.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  velocity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install supabase
+
+      - name: Compute rank velocity
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python rank_velocity.py
