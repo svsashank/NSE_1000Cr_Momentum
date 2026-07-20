@@ -3,6 +3,11 @@ name: Run Momentum Screen
 on:
   repository_dispatch:
     types: [run_screen]
+  schedule:
+    # 11:00 UTC = 16:30 IST, Mon-Fri. NSE closes 15:30 IST; +1h buffer covers
+    # candle settling and GitHub Actions scheduling delays. Does NOT skip NSE holidays.
+    - cron: '0 11 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   screen:
