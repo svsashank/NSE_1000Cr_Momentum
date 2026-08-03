@@ -318,7 +318,35 @@ function resolveOwner() {
   return null;                       // unknown → show chooser, never default silently
 }
 const PORTFOLIO_OWNER = resolveOwner();
+// Live defaults loaded from config.json — the Parameters tab and Reset button
+// use this instead of hardcoded HTML/JS values, so they can never silently drift
+// out of sync with the actual config the screener runs with.
+let CONFIG_DEFAULTS = null;
+async function loadConfigDefaults() {
+  try {
+    const r = await fetch('./config.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error(`config.json fetch failed: ${r.status}`);
+    const c = await r.json();
+    CONFIG_DEFAULTS = {
+      pPortfolioSize: c.portfolio_size, pSmaShort: c.sma_short, pSmaLong: c.sma_long,
+      pRsi: c.rsi_threshold, pMaxVol: c.max_volatility, pMaxFromHigh: c.max_from_high,
+      pSmaBuffer: c.sma_buffer, pCmf: c.cmf_threshold, pMinMcap: c.min_mcap,
+      pMinAdv: c.min_adv, pLookback: c.lookback_days,
+      pGoldTargetPct: c.gold_target_pct, pGoldThresholdPct: c.gold_rebal_threshold_pct,
+      pGoldTicker: (c.gold_ticker || 'GOLDBEES.NS').replace(/\.NS$/i, '')
+    };
+    // Populate the visible fields with the real current config
+    Object.entries(CONFIG_DEFAULTS).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) el.value = val;
+    });
+  } catch (e) {
+    console.error('Could not load config.json for Parameters tab; showing static fallback values', e);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  loadConfigDefaults();
   if (!PORTFOLIO_OWNER) { showOwnerChooser(); return; }
   const label = PORTFOLIO_OWNER.charAt(0).toUpperCase() + PORTFOLIO_OWNER.slice(1);
   document.title = `${label} · NSE Momentum`;
@@ -449,10 +477,10 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
         <div class="field"><label>SMA short</label><input type="number" id="pSmaShort" value="21"></div>
         <div class="field"><label>SMA long</label><input type="number" id="pSmaLong" value="200"></div>
         <div class="field"><label>RSI threshold</label><input type="number" id="pRsi" value="50"></div>
-        <div class="field"><label>Max volatility</label><input type="number" id="pMaxVol" value="0.75" step="0.05"></div>
+        <div class="field"><label>Max volatility</label><input type="number" id="pMaxVol" value="0.8" step="0.05"></div>
         <div class="field"><label>Max % from 52W high</label><input type="number" id="pMaxFromHigh" value="0.25" step="0.05"></div>
         <div class="field"><label>SMA21 buffer (price ≥ SMA21 × (1−buffer))</label><input type="number" id="pSmaBuffer" value="0.05" step="0.01" min="0" max="0.5"></div>
-        <div class="field"><label>CMF threshold</label><input type="number" id="pCmf" value="0.1" step="0.05"></div>
+        <div class="field"><label>CMF threshold</label><input type="number" id="pCmf" value="0.05" step="0.05"></div>
       </div>
       <div>
         <div class="section-title" style="margin-bottom:12px">Liquidity</div>
@@ -524,10 +552,15 @@ function gatherScreenParams() {
 }
 
 function resetParams() {
-  const d = { pPortfolioSize:15, pSmaShort:21, pSmaLong:200, pRsi:50,
-    pMaxVol:0.75, pMaxFromHigh:0.25, pSmaBuffer:0.05, pCmf:0.1, pMinMcap:1000, pMinAdv:10, pLookback:550,
-    pGoldTargetPct:10, pGoldThresholdPct:2.5, pGoldTicker:'GOLDBEES' };
-  Object.entries(d).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
+  if (!CONFIG_DEFAULTS) {
+    setRunStatus && setRunStatus('Still loading config.json defaults — try again in a moment.', 'err');
+    loadConfigDefaults();
+    return;
+  }
+  Object.entries(CONFIG_DEFAULTS).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el && val !== undefined && val !== null) el.value = val;
+  });
 }
 
 function switchTab(id, el) {
@@ -957,20 +990,22 @@ function renderDelta() {
   );
   const top15Set = new Set(latestTop15.map(r => norm(r.ticker)));
 
-  // Portfolio map (excluding LIQUIDCASE — handled separately)
-  const portfolioMap = {};
-  let liquidcaseHolding = null;
-  currentPortfolio.forEach(r => {
-    const n = norm(r.ticker);
-    if (n === LIQUIDCASE) { liquidcaseHolding = r; }
-    else { portfolioMap[n] = r; }
-  });
-
   // ── Gold allocation (GOLDBEES) ────────────────────────────────────────────
   const goldTargetPct   = parseFloat(document.getElementById('pGoldTargetPct')?.value   ?? 10);
   const goldThreshPct   = parseFloat(document.getElementById('pGoldThresholdPct')?.value ?? 2.5);
   const goldSymbol      = (document.getElementById('pGoldTicker')?.value ?? 'GOLDBEES').toUpperCase().replace(/\.NS$/i,'');
   const GOLDSYM         = goldSymbol;
+
+  // Portfolio map (excluding LIQUIDCASE and the gold sleeve — both handled separately,
+  // never generic buy/hold/sell equity candidates)
+  const portfolioMap = {};
+  let liquidcaseHolding = null;
+  currentPortfolio.forEach(r => {
+    const n = norm(r.ticker);
+    if (n === LIQUIDCASE) { liquidcaseHolding = r; }
+    else if (n === GOLDSYM) { /* handled by dedicated gold logic below */ }
+    else { portfolioMap[n] = r; }
+  });
 
   // Find gold holding in portfolio
   const goldHolding = currentPortfolio.find(r => norm(r.ticker) === GOLDSYM) ?? null;
@@ -1121,19 +1156,21 @@ function renderDeltaPhase1() {
   const rankMap = {};
   latestUniverse.forEach(r => { rankMap[norm(r.ticker)] = r.rank_score; });
 
-  const portfolioMap = {};
-  let liquidcaseHolding = null;
-  currentPortfolio.forEach(r => {
-    const n = norm(r.ticker);
-    if (n === LIQUIDCASE) liquidcaseHolding = r;
-    else portfolioMap[n] = r;
-  });
-
   // ── Gold allocation (self-contained — recomputed here since this is a
   // separate function from renderDelta(), no shared closure scope) ──────────
   const goldTargetPct   = parseFloat(document.getElementById('pGoldTargetPct')?.value   ?? 10);
   const goldThreshPct   = parseFloat(document.getElementById('pGoldThresholdPct')?.value ?? 2.5);
   const goldSymbol      = (document.getElementById('pGoldTicker')?.value ?? 'GOLDBEES').toUpperCase().replace(/\.NS$/i,'');
+
+  const portfolioMap = {};
+  let liquidcaseHolding = null;
+  currentPortfolio.forEach(r => {
+    const n = norm(r.ticker);
+    if (n === LIQUIDCASE) liquidcaseHolding = r;
+    else if (n === goldSymbol) { /* handled by dedicated gold logic below, not a generic equity row */ }
+    else portfolioMap[n] = r;
+  });
+
   const goldHolding     = currentPortfolio.find(r => norm(r.ticker) === goldSymbol) ?? null;
   const goldShares      = goldHolding?.shares ?? 0;
   const goldPrice       = priceMap[goldSymbol] ?? goldHolding?.avg_cost ?? null;
@@ -1275,6 +1312,16 @@ function renderDeltaPhase1() {
   ${buys.map(t => row(t, 'buy')).join('')}
   ${holds.map(t => row(t, 'hold')).join('')}
   ${sells.map(t => row(t, 'sell')).join('')}
+  <tr style="background:${goldAction==='sell' ? 'rgba(255,102,102,.06)' : goldAction==='buy' ? 'rgba(62,207,142,.07)' : 'rgba(91,143,255,.05)'}">
+    <td><span class="badge ${goldAction}" style="cursor:default" title="Gold sleeve — sized by target %, not ranked with equities">${goldAction}</span></td>
+    <td class="ticker-cell">🥇 ${goldSymbol}.NS</td>
+    <td>${goldPrice ? '₹'+fmtNum(goldPrice) : '—'}</td>
+    <td>—</td>
+    <td>${goldShares || '—'}</td>
+    <td>${goldHolding?.avg_cost ? '₹'+fmtNum(goldHolding.avg_cost) : '—'}</td>
+    <td>${goldNeedsRebal ? '<strong>₹'+fmtNum(goldDeltaVal,0)+'</strong>' : (goldCurrVal ? '₹'+fmtNum(goldCurrVal,0) : '—')}</td>
+    <td style="color:var(--muted);font-size:12px">${goldActualPct.toFixed(1)}% → ${goldTargetPct}% target</td>
+  </tr>
   </tbody></table></div>
   <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
     <button class="btn-sm" onclick="rebalState=null;renderDelta()" style="color:var(--muted)">↺ Reset</button>
@@ -1295,11 +1342,13 @@ function renderDeltaPhase2() {
   latestTop15.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
   latestPassing.forEach(r => { priceMap[norm(r.ticker)] = r.price; });
 
+  const goldSymbolEarly = (document.getElementById('pGoldTicker')?.value ?? 'GOLDBEES').toUpperCase().replace(/\.NS$/i,'');
   const portfolioMap = {};
   let liquidcaseHolding = null;
   currentPortfolio.forEach(r => {
     const n = norm(r.ticker);
     if (n === LIQUIDCASE) liquidcaseHolding = r;
+    else if (n === goldSymbolEarly) { /* handled by dedicated gold logic below */ }
     else portfolioMap[n] = r;
   });
 
