@@ -683,6 +683,13 @@ let latestHoldZone = [];
 let latestUniverse = [];
 let velocityMap = {};   // norm(ticker) -> rank_momentum row (independent of rank_score)
 let currentPortfolio = [];
+let holdZoneSet = new Set();          // populated in renderDelta(), read in renderDeltaPhase1()
+let pctFromHighMap = {};              // norm(ticker) -> pct_from_high, populated in renderDelta()
+const NEAR_HIGH_PROTECT_PCT = 5;      // stocks within this % of 52w high are protected from forced sell
+function isNearHighProtected(t) {
+  const pfh = pctFromHighMap[t];
+  return pfh !== undefined && pfh !== null && pfh >= -NEAR_HIGH_PROTECT_PCT;
+}
 
 async function loadLatestScreen() {
   try {
@@ -985,11 +992,11 @@ function renderDelta() {
   latestUniverse.forEach(r => { rankMap[norm(r.ticker)] = r.rank_score; });
 
   // % from 52w high lookup (negative = below high, e.g. -3 = 3% off high)
-  const pctFromHighMap = {};
+  pctFromHighMap = {};
   latestUniverse.forEach(r => { pctFromHighMap[norm(r.ticker)] = r.pct_from_high; });
 
   // Hold zone and target maps
-  const holdZoneSet = new Set(
+  holdZoneSet = new Set(
     (latestHoldZone.length ? latestHoldZone : latestTop15).map(r => norm(r.ticker))
   );
   const top15Set = new Set(latestTop15.map(r => norm(r.ticker)));
@@ -1062,11 +1069,7 @@ function renderDelta() {
   // Near-high protection: a held stock within NEAR_HIGH_PROTECT_PCT of its 52w high
   // should not be force-sold just for falling out of the hold zone. Surveillance
   // (BZ) remains a hard block and still overrides this protection below.
-  const NEAR_HIGH_PROTECT_PCT = 5;
-  const isNearHighProtected = (t) => {
-    const pfh = pctFromHighMap[t];
-    return pfh !== undefined && pfh !== null && pfh >= -NEAR_HIGH_PROTECT_PCT;
-  };
+  // (NEAR_HIGH_PROTECT_PCT / isNearHighProtected are declared globally, above.)
 
   // Initial classification
   const initialBuys  = latestTop15.map(r => norm(r.ticker)).filter(t => !portfolioMap[t]);
