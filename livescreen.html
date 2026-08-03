@@ -984,6 +984,10 @@ function renderDelta() {
   const rankMap = {};
   latestUniverse.forEach(r => { rankMap[norm(r.ticker)] = r.rank_score; });
 
+  // % from 52w high lookup (negative = below high, e.g. -3 = 3% off high)
+  const pctFromHighMap = {};
+  latestUniverse.forEach(r => { pctFromHighMap[norm(r.ticker)] = r.pct_from_high; });
+
   // Hold zone and target maps
   const holdZoneSet = new Set(
     (latestHoldZone.length ? latestHoldZone : latestTop15).map(r => norm(r.ticker))
@@ -1055,10 +1059,19 @@ function renderDelta() {
       return !top15Set.has(n) && !portfolioMap[n] && (r.passes_all || r.is_near_miss);
     });
 
+  // Near-high protection: a held stock within NEAR_HIGH_PROTECT_PCT of its 52w high
+  // should not be force-sold just for falling out of the hold zone. Surveillance
+  // (BZ) remains a hard block and still overrides this protection below.
+  const NEAR_HIGH_PROTECT_PCT = 5;
+  const isNearHighProtected = (t) => {
+    const pfh = pctFromHighMap[t];
+    return pfh !== undefined && pfh !== null && pfh >= -NEAR_HIGH_PROTECT_PCT;
+  };
+
   // Initial classification
   const initialBuys  = latestTop15.map(r => norm(r.ticker)).filter(t => !portfolioMap[t]);
-  const initialHolds = Object.keys(portfolioMap).filter(t => holdZoneSet.has(t));
-  const initialSells = Object.keys(portfolioMap).filter(t => !holdZoneSet.has(t));
+  const initialHolds = Object.keys(portfolioMap).filter(t => holdZoneSet.has(t) || isNearHighProtected(t));
+  const initialSells = Object.keys(portfolioMap).filter(t => !holdZoneSet.has(t) && !isNearHighProtected(t));
 
   // Surveillance set — tickers under NSE trade restrictions (BE/BZ/ST)
   const survSet = new Set();
@@ -1247,7 +1260,10 @@ function renderDeltaPhase1() {
     const warnBadge = survWarnSetDelta.has(t)
       ? ` <span title="NSE trade-for-trade / short-term surveillance (BE/ST) — not blocked, review before acting" style="background:var(--yellow);color:#000;border-radius:3px;padding:0 4px;font-size:10px;font-weight:700">⚠</span>`
       : '';
-    return `<span class="badge ${action}" style="cursor:pointer;user-select:none" onclick="toggleAction('${t}')" title="${tip}">${action}</span>${warnBadge}`;
+    const nearHighBadge = (action === 'hold' && !holdZoneSet.has(t) && isNearHighProtected(t))
+      ? ` <span title="Near-high protection: within ${NEAR_HIGH_PROTECT_PCT}% of 52w high — held despite dropping out of the hold zone" style="background:var(--accent);color:#000;border-radius:3px;padding:0 4px;font-size:10px;font-weight:700">🛡</span>`
+      : '';
+    return `<span class="badge ${action}" style="cursor:pointer;user-select:none" onclick="toggleAction('${t}')" title="${tip}">${action}</span>${warnBadge}${nearHighBadge}`;
   };
 
   const row = (t, action) => {
