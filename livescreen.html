@@ -1420,15 +1420,43 @@ function renderDeltaPhase2() {
 
   const perBuyValue = buys.length ? cashPool / buys.length : cashPool;
 
-  // Compute buy quantities
+  // Compute buy quantities.
+  // Rounding each buy independently (Math.round) can leave up to ~half a
+  // share's value idle on EVERY position — with a handful of buys at
+  // mid/high prices that compounds into several percent of the pool left
+  // undeployed. Instead: floor every buy first (never overspends), then
+  // greedily hand out the leftover cash as extra whole shares to whichever
+  // position is furthest below its equal-weight target and can still
+  // afford one more share. This deploys capital down to well under one
+  // share's value instead of up to half a share's value per stock.
   let totalSpent = 0;
   const buyOrders = buys.map(t => {
     const price = priceMap[t] ?? 0;
-    const qty   = price ? Math.round(perBuyValue / price) : 0;
+    const qty   = price ? Math.floor(perBuyValue / price) : 0;
     const spent = qty * price;
     totalSpent += spent;
     return { t, price, qty, spent };
   });
+
+  let leftover = cashPool - totalSpent;
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    let best = null;
+    for (const o of buyOrders) {
+      if (o.price > 0 && o.price <= leftover) {
+        const deficit = perBuyValue - o.spent;
+        if (!best || deficit > best.deficit) best = { o, deficit };
+      }
+    }
+    if (best) {
+      best.o.qty   += 1;
+      best.o.spent += best.o.price;
+      leftover -= best.o.price;
+      progressed = true;
+    }
+  }
+  totalSpent = buyOrders.reduce((s,o) => s + o.spent, 0);
 
   const residual  = cashPool - totalSpent;
   const liquidBuyQty = liquidPrice ? Math.round(residual / liquidPrice) : 0;
