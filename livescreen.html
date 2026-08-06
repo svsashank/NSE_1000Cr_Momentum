@@ -1074,9 +1074,19 @@ function renderDelta() {
   // (NEAR_HIGH_PROTECT_PCT / isNearHighProtected are declared globally, above.)
 
   // Initial classification
-  const initialBuys  = latestTop15.map(r => norm(r.ticker)).filter(t => !portfolioMap[t]);
   const initialHolds = Object.keys(portfolioMap).filter(t => holdZoneSet.has(t) || isNearHighProtected(t));
   const initialSells = Object.keys(portfolioMap).filter(t => !holdZoneSet.has(t) && !isNearHighProtected(t));
+
+  // Composition cap: hold-zone/near-high protection changes a stock's action
+  // (sell → hold) but must NOT change the target portfolio size. If protected
+  // holds outside the top 15 push the total above target, trim the weakest
+  // (lowest-ranked, i.e. last in latestTop15 order) buy candidates so the
+  // final count stays at target — those candidates simply aren't bought this
+  // round rather than forcing a protected hold to be sold.
+  const targetSize = window._latestFilters?.portfolio_size || latestTop15.length || 15;
+  const allBuyCandidates = latestTop15.map(r => norm(r.ticker)).filter(t => !portfolioMap[t]);
+  const buyRoom = Math.max(0, targetSize - initialHolds.length);
+  const initialBuys = allBuyCandidates.slice(0, buyRoom);
 
   // Surveillance set — tickers under NSE trade restrictions (BE/BZ/ST)
   const survSet = new Set();
