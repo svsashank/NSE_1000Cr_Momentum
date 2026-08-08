@@ -310,7 +310,7 @@ const GITHUB_OWNER = 'svsashank';
 // ── Portfolio owner ────────────────────────────────────────────────────────
 // Resolved from ?user= ; remembered per-device so a dropped param never
 // silently lands someone on the wrong portfolio. Add names here as users grow.
-const KNOWN_USERS = ['sashank', 'sneha'];
+const KNOWN_USERS = ['sashank', 'sneha', 'abhilash'];
 function resolveOwner() {
   const p = new URLSearchParams(location.search).get('user');
   if (p) { const v = p.trim().toLowerCase(); try { localStorage.setItem('nse_owner', v); } catch(e){} return v; }
