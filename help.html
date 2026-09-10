@@ -1010,7 +1010,11 @@
           </button>
           <div class="faq-body">
             <div class="faq-body-inner">
-              Don't worry about it — Smallcase handles this automatically. If a stock is locked in an upper or lower circuit and can't be transacted, Smallcase keeps the order open and continuously attempts to fill it. It will notify you as soon as the stock comes out of circuit. This can take a few hours or a few days; either way, it resolves on its own without any action on your part.
+              When a stock hits a circuit limit, Smallcase will not be able to execute the order and will show an error. It will then initiate a <strong>repair order workflow</strong> for that transaction.
+              <br><br>
+              Once the stock comes out of circuit, Smallcase will send you a notification saying the order is ready to be repaired. At that point, you need to open the Smallcase app — on desktop or mobile — and <strong>manually trigger the repair</strong>. The order does not execute automatically; Smallcase waits for you to confirm it.
+              <br><br>
+              This can take a few hours or a few days depending on how long the stock stays in circuit. Once you trigger the repair and the order fills, everything is back in order.
             </div>
           </div>
         </div>
@@ -1164,5 +1168,28 @@
 
   sections.forEach(s => spy.observe(s));
 </script>
+
+<footer style="
+  margin-left: var(--nav-w);
+  border-top: 1px solid var(--border);
+  padding: 24px 56px;
+  background: var(--bg);
+">
+  <p style="
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    max-width: var(--main-max);
+    margin: 0;
+  ">
+    <strong style="color: var(--text-muted);">Disclaimer:</strong>
+    This platform and all content within it — including the screener, rankings, rebalance guidance, and this guide — are strictly for <strong style="color: var(--text-muted);">educational and informational purposes only</strong>.
+    Nothing here constitutes investment advice, a solicitation to buy or sell securities, or a recommendation of any kind.
+    The creator of this platform is <strong style="color: var(--text-muted);">not a registered SEBI investment advisor</strong>.
+    All investment decisions are your own. Past performance of any strategy is not indicative of future results.
+    Please consult a qualified financial advisor before making any investment decisions.
+  </p>
+</footer>
+
 </body>
 </html>
