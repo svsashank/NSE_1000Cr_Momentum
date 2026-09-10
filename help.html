@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NSE Momentum Screener — Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:          #0d1117;
+      --surface:     #161b22;
+      --surface2:    #1c2230;
+      --border:      #21262d;
+      --border2:     #30363d;
+      --accent:      #4f8ef7;
+      --accent-dim:  rgba(79,142,247,0.12);
+      --accent-ring: rgba(79,142,247,0.25);
+      --green:       #3fb950;
+      --green-dim:   rgba(63,185,80,0.1);
+      --red:         #f85149;
+      --red-dim:     rgba(248,81,73,0.1);
+      --yellow:      #d29922;
+      --yellow-dim:  rgba(210,153,34,0.1);
+      --gold:        #f0b429;
+      --gold-dim:    rgba(240,180,41,0.08);
+      --gold-ring:   rgba(240,180,41,0.22);
+      --text:        #e6edf3;
+      --text-muted:  #8b949e;
+      --text-dim:    #484f58;
+      --nav-w:       230px;
+      --main-max:    740px;
+      --radius:      8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.75;
+    }
+
+    /* ── Layout ──────────────────────────────── */
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ─────────────────────────────── */
+    .sidebar {
+      width: var(--nav-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: 0; left: 0;
+      height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+    }
+
+    .sidebar-top {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-brand {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.01em;
+    }
+
+    .sidebar-subtitle {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .sidebar-nav {
+      padding: 12px 0;
+      flex: 1;
+    }
+
+    .nav-group-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      padding: 12px 20px 4px;
+      letter-spacing: 0.04em;
+    }
+
+    .sidebar-nav a {
+      display: block;
+      padding: 7px 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: color 0.12s, background 0.12s, border-color 0.12s;
+      line-height: 1.4;
+    }
+
+    .sidebar-nav a:hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .sidebar-nav a.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .sidebar-bottom {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .back-link {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.12s;
+    }
+
+    .back-link:hover { color: var(--accent); }
+
+    /* ── Main ────────────────────────────────── */
+    .main {
+      margin-left: var(--nav-w);
+      flex: 1;
+      max-width: calc(var(--nav-w) + var(--main-max));
+      padding: 56px 56px 100px 56px;
+    }
+
+    /* ── Hero ────────────────────────────────── */
+    .hero {
+      margin-bottom: 56px;
+    }
+
+    .hero-eyebrow {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .hero h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin-bottom: 14px;
+    }
+
+    .hero-lead {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      max-width: 600px;
+    }
+
+    .hero-divider {
+      margin-top: 36px;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Sections ────────────────────────────── */
+    .section {
+      padding-top: 52px;
+      margin-bottom: 8px;
+      scroll-margin-top: 24px;
+    }
+
+    .section > h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.015em;
+      margin-bottom: 14px;
+      line-height: 1.3;
+    }
+
+    .section > p,
+    .section-body p {
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      max-width: 660px;
+    }
+
+    .section > p:last-child,
+    .section-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 28px 0 8px;
+    }
+
+    .section-rule {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin-top: 52px;
+    }
+
+    /* ── Callout ─────────────────────────────── */
+    .callout {
+      display: flex;
+      gap: 14px;
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin: 20px 0;
+      max-width: 660px;
+    }
+
+    .callout.blue  { background: var(--accent-dim); border: 1px solid var(--accent-ring); }
+    .callout.green { background: var(--green-dim);  border: 1px solid rgba(63,185,80,0.2); }
+    .callout.amber { background: var(--yellow-dim); border: 1px solid rgba(210,153,34,0.25); }
+
+    .callout-icon { font-size: 17px; flex-shrink: 0; line-height: 1.6; }
+
+    .callout-body { flex: 1; }
+
+    .callout-body strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .callout.blue  .callout-body strong { color: var(--accent); }
+    .callout.green .callout-body strong { color: var(--green); }
+    .callout.amber .callout-body strong { color: var(--yellow); }
+
+    .callout-body p {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin: 0;
+      max-width: none;
+    }
+
+    /* ── Prereqs ─────────────────────────────── */
+    .prereqs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .prereq {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 24px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .prereq-icon { font-size: 15px; }
+
+    /* ── Investment range ────────────────────── */
+    .range-row {
+      display: flex;
+      gap: 12px;
+      margin: 16px 0;
+      flex-wrap: wrap;
+    }
+
+    .range-chip {
+      display: inline-flex;
+      flex-direction: column;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 12px 20px;
+      min-width: 140px;
+    }
+
+    .range-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+    }
+
+    .range-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+
+    .range-value.green { color: var(--green); }
+    .range-value.amber { color: var(--yellow); }
+
+    /* ── Steps ───────────────────────────────── */
+    .steps { margin: 24px 0; }
+
+    .step {
+      display: flex;
+      gap: 18px;
+      position: relative;
+    }
+
+    .step-rail {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      width: 28px;
+    }
+
+    .step-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-line {
+      width: 1px;
+      background: var(--border2);
+      flex: 1;
+      min-height: 20px;
+      margin: 4px 0;
+    }
+
+    .step:last-child .step-line { display: none; }
+
+    .step-content {
+      flex: 1;
+      padding-bottom: 28px;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      padding-top: 3px;
+      margin-bottom: 6px;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      max-width: 580px;
+    }
+
+    .step-desc strong { color: var(--text); font-weight: 600; }
+    .step-desc a { color: var(--accent); text-decoration: none; }
+    .step-desc a:hover { text-decoration: underline; }
+
+    .step-sub {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .step-sub-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 13.5px;
+      color: var(--text-muted);
+    }
+
+    .step-sub-label {
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: 1px 7px;
+      flex-shrink: 0;
+    }
+
+    .step-sub-label.sell { background: var(--red-dim); color: var(--red); }
+    .step-sub-label.buy  { background: var(--green-dim); color: var(--green); }
+
+    /* ── Screen metric cards ─────────────────── */
+    .metric-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 20px 0;
+      max-width: 600px;
+    }
+
+    .metric-card {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .metric-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      letter-spacing: 0.02em;
+    }
+
+    .metric-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 6px;
+    }
+
+    .metric-val.green { color: var(--green); }
+    .metric-val.accent { color: var(--accent); }
+
+    .metric-note {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ── Badge legend ────────────────────────── */
+    .badge-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 20px 0;
+      max-width: 640px;
+    }
+
+    .badge-card {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+    }
+
+    .badge-emoji {
+      font-size: 22px;
+      flex-shrink: 0;
+      line-height: 1.4;
+    }
+
+    .badge-info { flex: 1; }
+
+    .badge-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .badge-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 5px;
+    }
+
+    .badge-action {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .badge-action.hold  { color: var(--accent); }
+    .badge-action.sell  { color: var(--red); }
+    .badge-action.watch { color: var(--yellow); }
+    .badge-action.info  { color: var(--text-muted); }
+
+    /* ── Gold section ────────────────────────── */
+    .gold-zone {
+      background: var(--gold-dim);
+      border: 1px solid var(--gold-ring);
+      border-radius: 10px;
+      padding: 24px 28px;
+      margin: 20px 0;
+      max-width: 640px;
+    }
+
+    .gold-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .gold-icon { font-size: 26px; }
+
+    .gold-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: -0.01em;
+    }
+
+    .gold-zone p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 10px;
+      max-width: none;
+    }
+
+    .gold-zone p:last-child { margin-bottom: 0; }
+
+    .gold-optional-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(240,180,41,0.15);
+      color: var(--gold);
+      border-radius: 4px;
+      padding: 2px 8px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* ── FAQ accordion ───────────────────────── */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 20px;
+      max-width: 660px;
+    }
+
+    .faq-item {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .faq-trigger {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 18px;
+      gap: 16px;
+      text-align: left;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.4;
+      transition: background 0.1s;
+    }
+
+    .faq-trigger:hover { background: rgba(255,255,255,0.025); }
+
+    .faq-chevron {
+      flex-shrink: 0;
+      color: var(--text-dim);
+      transition: transform 0.2s;
+    }
+
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+
+    .faq-body {
+      display: none;
+      padding: 0 18px 16px;
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      border-top: 1px solid var(--border);
+    }
+
+    .faq-body-inner { padding-top: 14px; }
+
+    .faq-item.open .faq-body { display: block; }
+
+    /* ── Glossary ────────────────────────────── */
+    .glossary {
+      max-width: 660px;
+      margin-top: 20px;
+    }
+
+    .glossary-row {
+      display: grid;
+      grid-template-columns: 175px 1fr;
+      gap: 16px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: start;
+    }
+
+    .glossary-row:first-child { border-top: 1px solid var(--border); }
+
+    .glossary-term {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      padding-top: 1px;
+    }
+
+    .glossary-def {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ── Mobile ──────────────────────────────── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 28px 20px 72px; }
+      .metric-row { grid-template-columns: 1fr; max-width: none; }
+      .glossary-row { grid-template-columns: 1fr; gap: 4px; }
+      .hero h1 { font-size: 26px; }
+      .range-row { gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Sidebar ─────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-brand">NSE Momentum Screener</div>
+      <div class="sidebar-subtitle">User guide</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-group-label">Getting started</div>
+      <a href="#what-is-this">What is this?</a>
+      <a href="#who-is-it-for">Who is it for?</a>
+      <a href="#before-you-begin">Before you begin</a>
+      <a href="#first-time-setup">First-time setup</a>
+
+      <div class="nav-group-label">Using the screener</div>
+      <a href="#reading-the-screen">Reading the screen</a>
+      <a href="#badges">Badges & indicators</a>
+      <a href="#monthly-rebalance">Monthly rebalance</a>
+
+      <div class="nav-group-label">Portfolio</div>
+      <a href="#gold">GOLDBEES & gold sleeve</a>
+      <a href="#faqs">FAQs</a>
+      <a href="#glossary">Glossary</a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <a href="livescreen.html" class="back-link">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        Back to screener
+      </a>
+    </div>
+  </aside>
+
+  <!-- ── Main content ───────────────────── -->
+  <main class="main">
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-eyebrow">NSE Momentum Screener</div>
+      <h1>Get started with systematic momentum investing</h1>
+      <p class="hero-lead">This guide walks you through everything you need — from first-time setup to your first rebalance. Read it once, and the workflow becomes second nature.</p>
+      <div class="hero-divider"></div>
+    </div>
+
+
+    <!-- What is this -->
+    <section class="section" id="what-is-this">
+      <h2>What is this screener?</h2>
+      <p>This screener scans the entire NSE-listed universe — over 2,000 stocks — and ranks them using a proprietary momentum score. It then applies a set of filters to eliminate stocks that are too risky: too illiquid, too volatile, losing trend strength, or under regulatory scrutiny. What remains is a clean, ranked shortlist of the strongest momentum stocks in the market right now.</p>
+      <p>Beyond surfacing stocks, it also tells you exactly what to do with them — which ones to hold, which to replace, and in what quantities — every single month.</p>
+
+      <div class="callout blue">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <strong>Rule-based investing vs. stock picking</strong>
+          <p>Stock picking can work, but it's an art — shaped by experience, instinct, and sometimes luck. This screener turns that into a science: the same rules, applied consistently, every time, with no emotion. Consistency is what creates predictable returns over the long run.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-rule">
+
+
+    <!-- Who is it for -->
+    <section class="section" id="who-is-it-for">
+      <h2>Who is this for?</h2>
+      <p>This is designed for investors who already understand the basics of markets — you've tried a few strategies on your own, you're comfortable holding equities, and you're ready to take a more structured, disciplined approach.</p>
+      <p>It is not a passive index fund. Momentum is a high-conviction, high-turnover strategy. When markets trend well, the returns can be significantly above the index. When markets chop or reverse sharply, drawdowns can be deeper. Make sure you're at peace with that tradeoff before investing.</p>
+
+      <div class="callout amber">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <strong>This is a high-risk, high-reward strategy</strong>
+          <p>Best suited to investors with at least some prior market experience, a multi-year time horizon, and the discipline to stick to the system during drawdowns.</p>
+        </div>
+      </div>
+
+      <h3>Suitable investment range</h3>
+      <div class="range-row">
+        <div class="range-chip">
+          <div class="range-label">Minimum to start</div>
+          <div class="range-value green">₹1–2 lakh</div>
+        </div>
+        <div class="range-chip">
+          <div class="range-label">Maximum recommended</div>
+          <div class="range-value amber">₹1 crore</div>
+        </div>
+      </div>
+      <p>Below ₹1 lakh, it becomes difficult to achieve balanced equal-weight allocation across 15 stocks — minimum lot sizes eat into the proportions. Above ₹1 crore, the smaller-cap stocks in the universe may not have enough daily liquidity to absorb the required position sizes without moving the price against you.</p>
+    </section>
+
+    <hr class="section-rule">
+
+
+    <!-- Before you begin -->
+    <section class="section" id="before-you-begin">
+      <h2>Before you begin</h2>
+      <p>You need two things set up before the screener is of any use to you.</p>
+
+      <div class="prereqs">
+        <div class="prereq">
+          <span class="prereq-icon">🏦</span>
+          A broking account (e.g. Zerodha)
+        </div>
+        <div class="prereq">
+          <span class="prereq-icon">📱</span>
+          Smallcase app, linked to your broker
+        </div>
+        <div class="prereq">
+          <span class="prereq-icon">💰</span>
+          At least ₹1–2 lakh ready to invest
+        </div>
+      </div>
+
+      <p>The <strong>Smallcase platform</strong> is where you'll actually hold and manage your portfolio. Think of the screener as your research engine — it tells you <em>what</em> to buy and sell and how many shares. Smallcase is where you store the portfolio, track performance, and execute the changes.</p>
+      <p>Once your broker account is active and linked to Smallcase, you're ready.</p>
+    </section>
+
+    <hr class="section-rule">
+
+
+    <!-- First-time setup -->
+    <section class="section" id="first-time-setup">
+      <h2>First-time setup</h2>
+      <p>Do this once when you're starting from scratch. After this, the <a href="#monthly-rebalance" style="color:var(--accent);text-decoration:none;">monthly rebalance workflow</a> takes over.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-rail"><div class="step-dot">1</div><div class="step-line"></div></div>
+          <div class="step-content">
+            <div class="step-title">Open the screener and read the Top 15</div>
+            <p class="step-desc">When the screener loads, you'll see a ranked list of stocks that have passed all filters. The top 15 are your starting portfolio. Note these down — these are the stocks you'll create your Smallcase with.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-rail"><div class="step-dot">2</div><div class="step-line"></div></div>
+          <div class="step-content">
+            <div class="step-title">Create a Smallcase with those 15 stocks</div>
+            <p class="step-desc">Open the Smallcase app and tap <strong>Create Smallcase</strong>. Search for each of the 15 stocks and add them. Set all positions to <strong>equal weight</strong> — Smallcase will calculate the exact allocation automatically based on the amount you invest. Confirm and invest your amount. Smallcase places all orders through your linked broker at once.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-rail"><div class="step-dot">3</div><div class="step-line"></div></div>
+          <div class="step-content">
+            <div class="step-title">Add GOLDBEES for the gold hedge <span style="font-size:12px;font-weight:500;color:var(--text-muted)">(optional but recommended)</span></div>
+            <p class="step-desc">While creating the Smallcase, add GOLDBEES and set it to <strong>10% of the total portfolio</strong>. This carves out a gold hedge, separate from the 15 equity positions. See the <a href="#gold">GOLDBEES section</a> for the full rationale.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-rail"><div class="step-dot">4</div><div class="step-line"></div></div>
+          <div class="step-content">
+            <div class="step-title">You're live</div>
+            <p class="step-desc">Once all orders fill, your momentum portfolio is active. Come back in roughly a month for your first rebalance. You can track performance any time in the Smallcase app.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-rule">
+
+
+    <!-- Reading the screen -->
+    <section class="section" id="reading-the-screen">
+      <h2>Reading the screen</h2>
+      <p>The screener runs automatically every trading day, around 4:30 PM IST — one hour after NSE closes. Each run fetches fresh price data, recomputes scores across the full universe, and updates the ranked list.</p>
+      <p>You don't need to analyse the numbers deeply — the filtering has already done the heavy work. The rank is the bottom line: the higher a stock sits, the stronger its momentum signal right now.</p>
+
+      <div class="metric-row">
+        <div class="metric-card">
+          <div class="metric-name">Rank</div>
+          <div class="metric-val">#7</div>
+          <div class="metric-note">Position in the full NSE universe by momentum score. Rank #1 is the strongest momentum stock across all listed companies.</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-name">Rank velocity</div>
+          <div class="metric-val green">▲ +9 <span style="font-size:14px;font-weight:500;">(13d)</span></div>
+          <div class="metric-note">How many rank positions this stock has climbed in the last ~13 days. Rising rank = momentum is building, not fading.</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-name">Score (SMA ratio)</div>
+          <div class="metric-val accent">2.41</div>
+          <div class="metric-note">The short-term trend (21-day average) divided by the long-term trend (200-day). Higher = stronger momentum relative to its own history.</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-name">CMF</div>
+          <div class="metric-val">0.18</div>
+          <div class="metric-note">Chaikin Money Flow. Positive means money is flowing into the stock — net institutional buying. The screener requires CMF above 0.05 to qualify.</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-rule">
+
+
+    <!-- Badges -->
+    <section class="section" id="badges">
+      <h2>Badges &amp; indicators</h2>
+      <p>Stocks in the list sometimes carry badge indicators that give you extra context — especially relevant during rebalance. Here's what each one means and how to act on it.</p>
+
+      <div class="badge-legend">
+        <div class="badge-card">
+          <div class="badge-emoji">🛡</div>
+          <div class="badge-info">
+            <div class="badge-name">Near-high hold</div>
+            <div class="badge-desc">This stock is within 5% of its 52-week high. Even if rank-based logic would otherwise suggest a sell, the screener keeps it as a hold — stocks near new highs tend to continue rather than reverse.</div>
+            <div class="badge-action hold">Hold — do not sell</div>
+          </div>
+        </div>
+
+        <div class="badge-card">
+          <div class="badge-emoji">🚨</div>
+          <div class="badge-info">
+            <div class="badge-name">Surveillance — hard block</div>
+            <div class="badge-desc">NSE has moved this stock into the BZ series (trade-to-trade with tight 5% circuit limits). This is a mandatory exit — the screener removes it from all portfolios regardless of its rank or how well it's been performing.</div>
+            <div class="badge-action sell">Sell — exit at next rebalance</div>
+          </div>
+        </div>
+
+        <div class="badge-card">
+          <div class="badge-emoji">⚠️</div>
+          <div class="badge-info">
+            <div class="badge-name">Surveillance — caution</div>
+            <div class="badge-desc">This stock is in the BE or ST series. Many reputable high-momentum stocks cycle through this temporarily while NSE monitors them. The screener does not force a sell — this is a heads-up, not a block.</div>
+            <div class="badge-action watch">Review — use your judgment</div>
+          </div>
+        </div>
+
+        <div class="badge-card">
+          <div class="badge-emoji">✨</div>
+          <div class="badge-info">
+            <div class="badge-name">Near-miss promotion</div>
+            <div class="badge-desc">This stock failed exactly one filter by a very small margin (within 10% of the threshold). It was promoted into the top 15 because it ranks higher than a strict pass that would otherwise fill the slot. A borderline qualifier — treat it as normal, but be aware.</div>
+            <div class="badge-action info">Normal position — borderline qualifier</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-rule">
+
+
+    <!-- Monthly rebalance -->
+    <section class="section" id="monthly-rebalance">
+      <h2>Monthly rebalance</h2>
+      <p>Once invested, you rebalance roughly once a month. The goal is to exit stocks that have lost momentum and replace them with new ones that have risen in the rankings. Precision isn't the point — 28 days or 33 days is fine.</p>
+
+      <div class="callout blue">
+        <div class="callout-icon">📅</div>
+        <div class="callout-body">
+          <strong>Pick a day and be consistent</strong>
+          <p>Consistency matters more than timing. Pick a rough day of the month that works for you and stick to it. If possible, avoid rebalancing on major event days like RBI policy announcements or the Union Budget.</p>
+        </div>
+      </div>
+
+      <h3>The rebalance workflow, step by step</h3>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-rail"><div class="step-dot">1</div><div class="step-line"></div></div>
+          <div class="step-content">
+            <div class="step-title">Export your portfolio from Smallcase</div>
+            <p class="step-desc">Open Smallcase on <strong>desktop</strong> (the export feature is desktop-only). Find your smallcase and export it as a CSV file. This tells the screener exactly what you currently hold and in what quantities.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-rail"><div class="step-dot">2</div><div class="step-line"></div></div>
+          <div class="step-content">
+            <div class="step-title">Import the CSV into the screener</div>
+            <p class="step-desc">In the screener, switch to the <strong>Portfolio</strong> tab. Upload the CSV you just downloaded. The screener parses your current holdings and maps them against the latest run's rankings.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-rail"><div class="step-dot">3</div><div class="step-line"></div></div>
+          <div class="step-content">
+            <div class="step-title">Review the Rebalance Delta (Phase 1)</div>
+            <p class="step-desc">Go to the <strong>Rebalance Delta</strong> tab. This is your review step. Every stock is tagged as <strong>Hold</strong>, <strong>Sell</strong>, or <strong>Buy</strong>. Look through the list — if you have a strong reason to override a call, you can flip the badge. Otherwise, trust the system. The screener's anti-whipsaw logic means it won't sell something that's merely dipped temporarily.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-rail"><div class="step-dot">4</div><div class="step-line"></div></div>
+          <div class="step-content">
+            <div class="step-title">Generate the execution plan (Phase 2)</div>
+            <p class="step-desc">Once you're satisfied with Phase 1, confirm. The screener generates a precise <strong>execution plan</strong>: for every action, it shows you the exact number of shares to transact, calculated from your total current portfolio value. No mental arithmetic needed.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-rail"><div class="step-dot">5</div><div class="step-line"></div></div>
+          <div class="step-content">
+            <div class="step-title">Execute in Smallcase</div>
+            <p class="step-desc">Take the execution plan to Smallcase and open <strong>Manage Smallcase</strong>.</p>
+            <div class="step-sub">
+              <div class="step-sub-row">
+                <span class="step-sub-label sell">Sell</span>
+                Find the stock in your smallcase. Set its quantity to 0. Smallcase will sell the entire position.
+              </div>
+              <div class="step-sub-row">
+                <span class="step-sub-label buy">Buy</span>
+                Use the search bar to add the new stock. Enter the quantity from the execution plan.
+              </div>
+            </div>
+            <p class="step-desc" style="margin-top:12px">Confirm all changes together. Smallcase places every order through your broker in one go.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout green">
+        <div class="callout-icon">✅</div>
+        <div class="callout-body">
+          <strong>You're done</strong>
+          <p>The whole process — from Smallcase export to execution — takes about 15–20 minutes once you've done it once or twice.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-rule">
+
+
+    <!-- GOLDBEES -->
+    <section class="section" id="gold">
+      <h2>GOLDBEES &amp; the gold sleeve</h2>
+
+      <div class="gold-zone">
+        <div class="gold-header">
+          <div class="gold-icon">🥇</div>
+          <div class="gold-title">10% allocation to gold <span class="gold-optional-tag">optional</span></div>
+        </div>
+        <p>GOLDBEES is a gold ETF listed on NSE — it tracks the price of physical gold and trades like any other stock. The screener sets aside a fixed 10% of your total portfolio for it, separate from the 15 equity positions. This is your <strong>hedge</strong>.</p>
+        <p>Gold and equities tend to move in opposite directions during periods of stress. When equity markets sell off sharply — which they will, at some point — gold typically rises. Holding 10% in gold means part of your portfolio is working in your favour during a downturn, reducing the severity of the overall drawdown.</p>
+        <p>This is optional. If you skip it, the equity portfolio simply runs at 100% of your investment. But the gold sleeve is recommended — it meaningfully smooths the ride without giving up much during bull markets.</p>
+      </div>
+
+      <h3>How it rebalances</h3>
+      <p>The screener tracks GOLDBEES separately. If gold drifts too far from the 10% target — because gold moved, or because your equity portfolio grew or shrank — the monthly rebalance plan will include a buy or sell instruction for GOLDBEES too, with an exact number of units. You handle it the same way as any other position in Smallcase.</p>
+    </section>
+
+    <hr class="section-rule">
+
+
+    <!-- FAQs -->
+    <section class="section" id="faqs">
+      <h2>Frequently asked questions</h2>
+
+      <div class="faq-list">
+
+        <div class="faq-item">
+          <button class="faq-trigger" onclick="toggleFaq(this)">
+            What happens if a stock goes into circuit during rebalance?
+            <svg class="faq-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-body">
+            <div class="faq-body-inner">
+              Don't worry about it — Smallcase handles this automatically. If a stock is locked in an upper or lower circuit and can't be transacted, Smallcase keeps the order open and continuously attempts to fill it. It will notify you as soon as the stock comes out of circuit. This can take a few hours or a few days; either way, it resolves on its own without any action on your part.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-trigger" onclick="toggleFaq(this)">
+            Where should I track the performance of my portfolio?
+            <svg class="faq-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-body">
+            <div class="faq-body-inner">
+              Directly in the Smallcase app. It has a clear, visual interface that shows your portfolio's overall returns, individual stock performance, and your XIRR since inception. You don't need to maintain any separate tracking sheet — Smallcase handles all of this natively.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-trigger" onclick="toggleFaq(this)">
+            Can I invest more money after the initial setup?
+            <svg class="faq-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-body">
+            <div class="faq-body-inner">
+              Yes, you can add money at any time. Smallcase gives you two options: a one-time lump sum addition, or an SIP (Systematic Investment Plan) where a fixed amount is invested automatically at a set frequency. Both are available directly in the Smallcase platform under your smallcase settings. New money is deployed proportionally across your current holdings.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-trigger" onclick="toggleFaq(this)">
+            What if the rebalance shows no changes?
+            <svg class="faq-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-body">
+            <div class="faq-body-inner">
+              If the Rebalance Delta shows all your holdings as Hold with no Buys or Sells, there's nothing to do. This is a valid outcome — it happens when the current portfolio is still optimal. It's most common during strongly trending markets where the same stocks stay at the top for consecutive months.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-trigger" onclick="toggleFaq(this)">
+            Why doesn't the screener sell a stock the moment it drops below rank 15?
+            <svg class="faq-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-body">
+            <div class="faq-body-inner">
+              Stocks frequently dip in rank during brief consolidations and then recover. Selling every time a held stock slips to rank 16 or 17 would generate unnecessary churn — and you'd often end up buying the same stock back a few weeks later. The screener gives held positions a buffer: a stock is only sold when it falls below rank 25. This reduces whipsaw without compromising the strategy.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-trigger" onclick="toggleFaq(this)">
+            How often does the screener update?
+            <svg class="faq-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-body">
+            <div class="faq-body-inner">
+              Once every trading day, automatically at around 4:30–4:45 PM IST. Each run fetches the day's closing prices, recomputes momentum scores across the full NSE universe, and updates the ranked list. You don't need to trigger anything — just open the screener and you'll see the latest results.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="section-rule">
+
+
+    <!-- Glossary -->
+    <section class="section" id="glossary">
+      <h2>Glossary</h2>
+      <p>Plain-language definitions for terms used in the screener.</p>
+
+      <div class="glossary">
+        <div class="glossary-row">
+          <div class="glossary-term">SMA21 / SMA200</div>
+          <div class="glossary-def">Simple Moving Averages over 21 days and 200 days. The screener's core momentum score is the ratio of SMA21 ÷ SMA200. A high ratio means the recent trend is well above the long-term trend — strong upward momentum.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Momentum rank</div>
+          <div class="glossary-def">A stock's position in the full NSE universe when sorted by momentum score, from highest to lowest. Rank #1 = the strongest momentum stock across all listed companies today.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Rank velocity</div>
+          <div class="glossary-def">How many rank positions a stock has moved over the past ~13 days. A positive number (e.g. ▲ +9) means the stock has climbed 9 positions — its momentum is accelerating. Calculated from the statistical trend across the last 20 screen runs.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">CMF</div>
+          <div class="glossary-def">Chaikin Money Flow. Measures net buying vs. selling pressure over 20 days based on how prices close within each day's range. A CMF above 0.05 is required to pass the screener's filters — it indicates net institutional buying.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">ADV</div>
+          <div class="glossary-def">Average Daily Value traded (in rupees). A liquidity filter — the screener requires at least ₹10 crore of daily turnover. This ensures you can enter and exit positions at scale without significant slippage.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Hold zone</div>
+          <div class="glossary-def">A buffer that protects existing positions from premature exits. A stock in your portfolio is only sold when it falls below rank 25 — not when it drops below rank 15. This prevents unnecessary churn from short-term rank fluctuations.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Near-high protection</div>
+          <div class="glossary-def">If a held stock is within 5% of its 52-week high, the screener shields it from a sell call — shown with the 🛡 badge. Stocks near new highs frequently continue rising and selling them prematurely gives up upside.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Near-miss promotion</div>
+          <div class="glossary-def">A stock that fails exactly one filter but only by a very small margin (≤10% of the threshold). The screener may include it in the top 15 if it ranks higher than a stock that passes all filters strictly. Shown with the ✨ badge.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Rebalance delta</div>
+          <div class="glossary-def">The difference between what you currently hold and what the screener recommends. Expressed as Hold / Sell / Buy actions with exact share quantities for each stock.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">GOLDBEES</div>
+          <div class="glossary-def">A gold ETF listed on NSE that tracks the price of physical gold. Used as a 10% fixed allocation to hedge against equity market downturns — gold tends to rise when equity markets fall sharply.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Smallcase</div>
+          <div class="glossary-def">A platform that lets you create and manage a basket of stocks as a single portfolio through your broker. Used here for portfolio creation, rebalancing, performance tracking, and investing more via lump sum or SIP.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">SIP</div>
+          <div class="glossary-def">Systematic Investment Plan. A fixed amount invested automatically at a set frequency (weekly, monthly, etc.). Available on the Smallcase platform for any smallcase you've created.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  /* FAQ accordion */
+  function toggleFaq(btn) {
+    btn.closest('.faq-item').classList.toggle('open');
+  }
+
+  /* Scroll-spy: highlight active nav link */
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks  = document.querySelectorAll('.sidebar-nav a');
+
+  const spy = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        navLinks.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
+
+  sections.forEach(s => spy.observe(s));
+</script>
+</body>
+</html>
