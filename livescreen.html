@@ -56,6 +56,7 @@
   .tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 160px); border-radius: 10px; border: 1px solid var(--border); }
   .tbl-wrap table { width: 100%; }
   .tbl-wrap.universe-tbl table { table-layout: fixed; }
+  .universe-tbl .ticker-cell { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 0; }
   .tbl-wrap tbody tr { content-visibility: auto; contain-intrinsic-size: 0 38px; }
   table { width: 100%; border-collapse: collapse; font-size: var(--small); }
   th { background: var(--surface2); padding: 10px 12px; text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
@@ -907,8 +908,8 @@ function renderUniverse(runDate, filters) {
   <div class="tbl-wrap universe-tbl"><table>
   <colgroup>
     <col style="width:40px">  <!-- # -->
-    <col style="width:110px"> <!-- Ticker -->
-    <col style="width:72px">  <!-- Price -->
+    <col style="width:130px"> <!-- Ticker -->
+    <col style="width:76px">  <!-- Price -->
     <col style="width:84px">  <!-- Rank Score -->
     <col style="width:80px">  <!-- Velocity -->
     <col style="width:52px">  <!-- RSI -->
@@ -979,7 +980,7 @@ function renderUniverse(runDate, filters) {
 
     html += `<tr style="${rowStyle}">
       <td class="rank">${i + 1}</td>
-      <td class="ticker-cell" style="${tickerStyle}">${r.ticker}${tickerSuffix}${survBadge}</td>
+      <td class="ticker-cell" style="${tickerStyle}" title="${r.ticker}">${r.ticker}${tickerSuffix}${survBadge}</td>
       <td>₹${fmtNum(r.price)}</td>
       <td>${r.rank_score != null ? fmtNum(r.rank_score, 4) : '—'}</td>
       ${velCell}
