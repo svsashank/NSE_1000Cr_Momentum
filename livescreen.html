@@ -55,8 +55,7 @@
   /* ── Tables ── */
   .tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 160px); border-radius: 10px; border: 1px solid var(--border); }
   .tbl-wrap table { width: 100%; }
-  .tbl-wrap.universe-tbl table { table-layout: fixed; }
-  .universe-tbl .ticker-cell { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 0; }
+  .tbl-wrap tbody tr { content-visibility: auto; contain-intrinsic-size: 0 38px; }
   .tbl-wrap tbody tr { content-visibility: auto; contain-intrinsic-size: 0 38px; }
   table { width: 100%; border-collapse: collapse; font-size: var(--small); }
   th { background: var(--surface2); padding: 10px 12px; text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
@@ -905,23 +904,7 @@ function renderUniverse(runDate, filters) {
     <strong>${latestPassing.length}</strong> passed all filters &nbsp;·&nbsp;
     Top <strong>${topN}</strong> highlighted
   </div>
-  <div class="tbl-wrap universe-tbl"><table>
-  <colgroup>
-    <col style="width:40px">  <!-- # -->
-    <col style="width:130px"> <!-- Ticker -->
-    <col style="width:76px">  <!-- Price -->
-    <col style="width:84px">  <!-- Rank Score -->
-    <col style="width:80px">  <!-- Velocity -->
-    <col style="width:52px">  <!-- RSI -->
-    <col style="width:56px">  <!-- Vol % -->
-    <col style="width:72px">  <!-- ADV -->
-    <col style="width:56px">  <!-- CMF -->
-    <col style="width:88px">  <!-- MCap -->
-    <col style="width:96px">  <!-- % from High -->
-    <col style="width:52px"><col style="width:44px"><col style="width:40px">
-    <col style="width:40px"><col style="width:44px"><col style="width:72px">
-    <col style="width:40px"><col style="width:44px"> <!-- 8 filter cols -->
-  </colgroup>
+  <div class="tbl-wrap"><table>
   <thead><tr>
     <th>#</th><th>Ticker</th><th>Price</th><th>Rank Score</th>
     <th title="Net ranks climbed (or fallen) over the observed window, e.g. '▲ +9 (13d)' = climbed 9 places in 13 trading days. Independent of Rank Score; ordering is unchanged. Hover a cell for the daily rate and consistency.">Velocity</th>
