@@ -439,9 +439,9 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
     <span style="font-size:11px;color:var(--muted);">Indexed to 100 on first date</span>
   </div>
   <!-- Chart canvas -->
-  <div style="position:relative;width:100%;height:320px;background:var(--card);border-radius:8px;border:1px solid var(--border);padding:12px;box-sizing:border-box;">
-    <canvas id="perfChart"></canvas>
-    <div id="perf-empty" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:24px;">
+  <div style="position:relative;width:100%;height:320px;background:var(--card);border-radius:8px;border:1px solid var(--border);overflow:hidden;">
+    <canvas id="perfChart" style="padding:12px;box-sizing:border-box;width:100%!important;height:100%!important;"></canvas>
+    <div id="perf-empty" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:24px;background:var(--card);">
       No performance data yet — data builds automatically after each daily screen run.
     </div>
   </div>
