@@ -4,9 +4,12 @@ on:
   repository_dispatch:
     types: [run_screen]
   schedule:
-    # 11:00 UTC = 16:30 IST, Mon-Fri. NSE closes 15:30 IST; +1h buffer covers
-    # candle settling and GitHub Actions scheduling delays. Does NOT skip NSE holidays.
+    # Primary: 11:00 UTC = 16:30 IST, Mon-Fri
     - cron: '0 11 * * 1-5'
+    # Backup: 13:30 UTC = 19:00 IST, Mon-Fri
+    # GitHub's free-tier scheduler can be hours late or skip entirely.
+    # The screener is idempotent (upserts by run_date) so running twice is safe.
+    - cron: '30 13 * * 1-5'
   workflow_dispatch:
 
 jobs:
@@ -34,8 +37,6 @@ jobs:
         run: python screener.py
 
       - name: Compute rank velocity
-        # Independent add-on: reads the last N runs (incl. the one just pushed)
-        # and refreshes the rank_momentum table. Never fails the screen.
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -43,8 +44,6 @@ jobs:
         run: python rank_velocity.py
 
       - name: Record portfolio snapshots
-        # Writes one row per user to portfolio_history with total_value + benchmarks.
-        # Runs after screener so stock_snapshots prices are already fresh.
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
