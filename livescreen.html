@@ -397,6 +397,7 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
   <div class="tab" onclick="switchTab('params',this)">⚙ Parameters</div>
   <div class="tab" onclick="switchTab('delta',this)">Rebalance Delta</div>
   <div class="tab" onclick="switchTab('history',this)">Run History</div>
+  <div class="tab" onclick="switchTab('performance',this)">📈 Performance</div>
   <div class="tab" onclick="switchTab('screener',this)">🔍 Screener</div>
 </div>
 
@@ -417,6 +418,43 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
 </div>
 <div id="panel-delta"   class="panel"><div class="empty">Run a screen to see rebalance delta.</div></div>
 <div id="panel-history" class="panel"><div class="empty">Loading run history…</div></div>
+
+<div id="panel-performance" class="panel">
+  <div style="padding:16px 0 8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-weight:600;font-size:15px;">Portfolio Performance</span>
+    <span id="perf-owner-badge" style="font-size:12px;padding:2px 8px;border-radius:10px;background:var(--accent);color:#fff;"></span>
+    <span id="perf-status" style="font-size:12px;color:var(--muted);margin-left:4px;"></span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+    <label style="font-size:12px;color:var(--muted);">Period:</label>
+    <button class="btn-sm perf-period-btn active" data-days="30"  onclick="setPerfPeriod(30,this)">1M</button>
+    <button class="btn-sm perf-period-btn"        data-days="90"  onclick="setPerfPeriod(90,this)">3M</button>
+    <button class="btn-sm perf-period-btn"        data-days="180" onclick="setPerfPeriod(180,this)">6M</button>
+    <button class="btn-sm perf-period-btn"        data-days="365" onclick="setPerfPeriod(365,this)">1Y</button>
+    <button class="btn-sm perf-period-btn"        data-days="9999" onclick="setPerfPeriod(9999,this)">All</button>
+    <span style="flex:1"></span>
+    <span style="font-size:11px;color:var(--muted);">Indexed to 100 on first date</span>
+  </div>
+  <!-- Chart canvas -->
+  <div style="position:relative;width:100%;height:320px;background:var(--card);border-radius:8px;border:1px solid var(--border);padding:12px;box-sizing:border-box;">
+    <canvas id="perfChart"></canvas>
+    <div id="perf-empty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;">
+      No performance data yet — data builds automatically after each daily screen run.
+    </div>
+  </div>
+  <!-- Stats row -->
+  <div id="perf-stats" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;"></div>
+  <!-- Data table toggle -->
+  <div style="margin-top:14px;">
+    <button class="btn-sm" onclick="togglePerfTable()" id="perf-table-toggle">Show data table</button>
+    <div id="perf-table-wrap" style="display:none;overflow-x:auto;margin-top:8px;">
+      <table class="data-table" id="perf-data-table">
+        <thead><tr><th>Date</th><th>Portfolio (₹)</th><th>Portfolio idx</th><th>Nifty 50 idx</th><th>Nifty 500 idx</th></tr></thead>
+        <tbody id="perf-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 <div id="panel-screener" class="panel">
   <!-- Header bar with date stamp -->
@@ -1912,9 +1950,10 @@ function renderScreenerTable(rows) {
   document.getElementById('scr-table').innerHTML = html;
 }
 
-// Hook switchTab to set date badge + auto-apply on screener open
+// Hook switchTab to set date badge + auto-apply on screener open, load perf on first visit
 (function() {
   const origSwitch = window.switchTab;
+  let perfLoaded = false;
   window.switchTab = function(id, el) {
     origSwitch(id, el);
     if (id === 'screener') {
@@ -1922,10 +1961,226 @@ function renderScreenerTable(rows) {
       if (badge && scrScreenDate) badge.textContent = 'Data as of ' + scrScreenDate;
       if (latestUniverse.length) applyScreener();
     }
+    if (id === 'performance') {
+      if (!perfLoaded) { perfLoaded = true; loadPerformance(); }
+    }
   };
 })();
 
+// ── Performance Tab ──────────────────────────────────────────────────────────
+
+let perfChart      = null;
+let perfAllData    = [];   // full history rows from Supabase
+let perfDays       = 30;   // current period filter
+
+async function loadPerformance() {
+  const statusEl = document.getElementById('perf-status');
+  const badgeEl  = document.getElementById('perf-owner-badge');
+  if (badgeEl) badgeEl.textContent = PORTFOLIO_OWNER
+    ? PORTFOLIO_OWNER.charAt(0).toUpperCase() + PORTFOLIO_OWNER.slice(1)
+    : 'Unknown';
+  if (!PORTFOLIO_OWNER) {
+    if (statusEl) statusEl.textContent = 'No user selected.';
+    return;
+  }
+  if (statusEl) statusEl.textContent = 'Loading…';
+  try {
+    const rows = await sb(
+      `portfolio_history?owner=eq.${PORTFOLIO_OWNER}&order=snapshot_date.asc&select=snapshot_date,total_value,nifty50_close,nifty500_close`
+    ) || [];
+    perfAllData = rows;
+    if (statusEl) statusEl.textContent = `${rows.length} data point${rows.length!==1?'s':''} loaded`;
+    renderPerfChart(perfDays);
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'Error loading data: ' + e.message;
+  }
+}
+
+function setPerfPeriod(days, btn) {
+  perfDays = days;
+  document.querySelectorAll('.perf-period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPerfChart(days);
+}
+
+function togglePerfTable() {
+  const wrap = document.getElementById('perf-table-wrap');
+  const btn  = document.getElementById('perf-table-toggle');
+  if (!wrap) return;
+  const hidden = wrap.style.display === 'none';
+  wrap.style.display = hidden ? 'block' : 'none';
+  btn.textContent    = hidden ? 'Hide data table' : 'Show data table';
+}
+
+function renderPerfChart(days) {
+  const emptyEl = document.getElementById('perf-empty');
+  const statsEl = document.getElementById('perf-stats');
+
+  // Filter by period
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - (days >= 9999 ? 99999 : days));
+  const filtered = perfAllData.filter(r => new Date(r.snapshot_date) >= cutoff);
+
+  if (!filtered.length) {
+    if (emptyEl) { emptyEl.style.display = 'flex'; }
+    if (statsEl)  statsEl.innerHTML = '';
+    if (perfChart) { perfChart.destroy(); perfChart = null; }
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  // Index to 100 on first date
+  const base = {
+    port : filtered[0].total_value   || 1,
+    n50  : filtered[0].nifty50_close  || 1,
+    n500 : filtered[0].nifty500_close || 1,
+  };
+
+  const labels   = filtered.map(r => r.snapshot_date);
+  const portIdx  = filtered.map(r => r.total_value    != null ? +((r.total_value    / base.port) * 100).toFixed(2) : null);
+  const n50Idx   = filtered.map(r => r.nifty50_close  != null ? +((r.nifty50_close  / base.n50)  * 100).toFixed(2) : null);
+  const n500Idx  = filtered.map(r => r.nifty500_close != null ? +((r.nifty500_close / base.n500) * 100).toFixed(2) : null);
+
+  // Compute stats
+  const lastPort  = portIdx.at(-1)  ?? 100;
+  const lastN50   = n50Idx.at(-1)   ?? 100;
+  const lastN500  = n500Idx.at(-1)  ?? 100;
+  const portRet   = (lastPort  - 100).toFixed(1);
+  const n50Ret    = (lastN50   - 100).toFixed(1);
+  const n500Ret   = (lastN500  - 100).toFixed(1);
+  const portVsN50 = (lastPort  - lastN50).toFixed(1);
+
+  function statCard(label, val, suffix='%', highlight=false) {
+    const pos = parseFloat(val) >= 0;
+    const col = highlight
+      ? (parseFloat(val) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)')
+      : (pos ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)');
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">${label}</div>
+      <div style="font-size:18px;font-weight:700;color:${col};">${parseFloat(val)>=0?'+':''}${val}${suffix}</div>
+    </div>`;
+  }
+
+  if (statsEl) {
+    statsEl.innerHTML =
+      statCard('Portfolio return', portRet)  +
+      statCard('Nifty 50 return',  n50Ret)   +
+      statCard('Nifty 500 return', n500Ret)  +
+      statCard('vs Nifty 50 (alpha)', portVsN50, '%', true) +
+      `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Portfolio value</div>
+        <div style="font-size:18px;font-weight:700;">₹${fmtNum(filtered.at(-1).total_value,0)}</div>
+       </div>`;
+  }
+
+  // Populate data table
+  const tbody = document.getElementById('perf-table-body');
+  if (tbody) {
+    tbody.innerHTML = [...filtered].reverse().map((r,i) => {
+      const pi = portIdx[filtered.length-1-i];
+      const ni = n50Idx[filtered.length-1-i];
+      const n5 = n500Idx[filtered.length-1-i];
+      return `<tr>
+        <td>${r.snapshot_date}</td>
+        <td>₹${fmtNum(r.total_value,0)}</td>
+        <td>${pi??'—'}</td>
+        <td>${ni??'—'}</td>
+        <td>${n5??'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Destroy old chart
+  if (perfChart) { perfChart.destroy(); perfChart = null; }
+
+  const canvas = document.getElementById('perfChart');
+  if (!canvas) return;
+
+  // Detect theme colors
+  const style   = getComputedStyle(document.documentElement);
+  const textCol = style.getPropertyValue('--text').trim()   || '#e2e8f0';
+  const mutedCol= style.getPropertyValue('--muted').trim()  || '#94a3b8';
+  const borderCol=style.getPropertyValue('--border').trim() || '#334155';
+
+  perfChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label       : 'Portfolio',
+          data        : portIdx,
+          borderColor : '#6366f1',
+          backgroundColor: 'rgba(99,102,241,0.08)',
+          borderWidth : 2.5,
+          pointRadius : filtered.length > 60 ? 0 : 3,
+          tension     : 0.3,
+          fill        : true,
+          spanGaps    : true,
+        },
+        {
+          label       : 'Nifty 50',
+          data        : n50Idx,
+          borderColor : '#f59e0b',
+          backgroundColor: 'transparent',
+          borderWidth : 1.5,
+          pointRadius : 0,
+          tension     : 0.3,
+          borderDash  : [4,4],
+          spanGaps    : true,
+        },
+        {
+          label       : 'Nifty 500',
+          data        : n500Idx,
+          borderColor : '#10b981',
+          backgroundColor: 'transparent',
+          borderWidth : 1.5,
+          pointRadius : 0,
+          tension     : 0.3,
+          borderDash  : [2,3],
+          spanGaps    : true,
+        },
+      ]
+    },
+    options: {
+      responsive         : true,
+      maintainAspectRatio: false,
+      interaction        : { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: textCol, font: { size: 12 }, boxWidth: 20 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color      : mutedCol,
+            maxTicksLimit: 8,
+            font       : { size: 11 },
+          },
+          grid: { color: borderCol }
+        },
+        y: {
+          ticks: {
+            color: mutedCol,
+            font : { size: 11 },
+            callback: v => v
+          },
+          grid: { color: borderCol },
+          title: { display: true, text: 'Indexed (base = 100)', color: mutedCol, font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </body>
 </html>
 
