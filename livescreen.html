@@ -54,7 +54,8 @@
 
   /* ── Tables ── */
   .tbl-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 160px); border-radius: 10px; border: 1px solid var(--border); }
-  .tbl-wrap table { table-layout: fixed; width: 100%; }
+  .tbl-wrap table { width: 100%; }
+  .tbl-wrap.universe-tbl table { table-layout: fixed; }
   .tbl-wrap tbody tr { content-visibility: auto; contain-intrinsic-size: 0 38px; }
   table { width: 100%; border-collapse: collapse; font-size: var(--small); }
   th { background: var(--surface2); padding: 10px 12px; text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
@@ -440,7 +441,7 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
   <!-- Chart canvas -->
   <div style="position:relative;width:100%;height:320px;background:var(--card);border-radius:8px;border:1px solid var(--border);padding:12px;box-sizing:border-box;">
     <canvas id="perfChart"></canvas>
-    <div id="perf-empty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;">
+    <div id="perf-empty" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:24px;">
       No performance data yet — data builds automatically after each daily screen run.
     </div>
   </div>
@@ -903,7 +904,7 @@ function renderUniverse(runDate, filters) {
     <strong>${latestPassing.length}</strong> passed all filters &nbsp;·&nbsp;
     Top <strong>${topN}</strong> highlighted
   </div>
-  <div class="tbl-wrap"><table>
+  <div class="tbl-wrap universe-tbl"><table>
   <colgroup>
     <col style="width:40px">  <!-- # -->
     <col style="width:110px"> <!-- Ticker -->
