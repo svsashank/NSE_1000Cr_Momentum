@@ -41,3 +41,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python rank_velocity.py
+
+      - name: Record portfolio snapshots
+        # Writes one row per user to portfolio_history with total_value + benchmarks.
+        # Runs after screener so stock_snapshots prices are already fresh.
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python portfolio_snapshot.py
