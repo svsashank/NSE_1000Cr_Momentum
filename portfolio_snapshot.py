@@ -95,7 +95,15 @@ def main():
             .execute().data or []
 
         if not holdings:
-            print(f'  {owner}: no holdings — skipping')
+            print(f'  {owner}: no holdings — writing benchmark-only row')
+            snapshot_rows.append({
+                'owner'         : owner,
+                'snapshot_date' : today,
+                'total_value'   : None,
+                'num_holdings'  : 0,
+                'nifty50_close' : round(nifty50_close, 2) if nifty50_close else None,
+                'nifty500_close': round(nifty500_close, 2) if nifty500_close else None,
+            })
             continue
 
         total_value  = 0.0
