@@ -1992,7 +1992,12 @@ async function loadPerformance() {
       `portfolio_history?owner=eq.${PORTFOLIO_OWNER}&order=snapshot_date.asc&select=snapshot_date,total_value,nifty50_close,nifty500_close`
     ) || [];
     perfAllData = rows;
-    if (statusEl) statusEl.textContent = `${rows.length} data point${rows.length!==1?'s':''} loaded`;
+    const hasPortfolioData = rows.some(r => r.total_value != null);
+    if (statusEl) statusEl.textContent = rows.length
+      ? (hasPortfolioData
+          ? `${rows.length} data point${rows.length!==1?'s':''} loaded`
+          : `${rows.length} day${rows.length!==1?'s':''} of benchmark data — import your portfolio to track value`)
+      : '0 data points loaded';
     renderPerfChart(perfDays);
   } catch(e) {
     if (statusEl) statusEl.textContent = 'Error loading data: ' + e.message;
@@ -2025,12 +2030,14 @@ function renderPerfChart(days) {
   const filtered = perfAllData.filter(r => new Date(r.snapshot_date) >= cutoff);
 
   if (!filtered.length) {
-    if (emptyEl) { emptyEl.style.display = 'flex'; }
+    if (emptyEl) { emptyEl.style.display = 'flex'; emptyEl.textContent = 'No performance data yet — data builds automatically after each daily screen run.'; }
     if (statsEl)  statsEl.innerHTML = '';
     if (perfChart) { perfChart.destroy(); perfChart = null; }
     return;
   }
   if (emptyEl) emptyEl.style.display = 'none';
+
+  const hasPortfolio = filtered.some(r => r.total_value != null);
 
   // Index to 100 on first date
   const base = {
@@ -2066,14 +2073,14 @@ function renderPerfChart(days) {
 
   if (statsEl) {
     statsEl.innerHTML =
-      statCard('Portfolio return', portRet)  +
+      (hasPortfolio ? statCard('Portfolio return', portRet)  : '') +
       statCard('Nifty 50 return',  n50Ret)   +
       statCard('Nifty 500 return', n500Ret)  +
-      statCard('vs Nifty 50 (alpha)', portVsN50, '%', true) +
-      `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
+      (hasPortfolio ? statCard('vs Nifty 50 (alpha)', portVsN50, '%', true) : '') +
+      (hasPortfolio ? `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
         <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Portfolio value</div>
         <div style="font-size:18px;font-weight:700;">₹${fmtNum(filtered.at(-1).total_value,0)}</div>
-       </div>`;
+       </div>` : `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;color:var(--muted);font-size:12px;">Import your portfolio to track value vs benchmarks</div>`);
   }
 
   // Populate data table
@@ -2110,7 +2117,7 @@ function renderPerfChart(days) {
     data: {
       labels,
       datasets: [
-        {
+        ...(hasPortfolio ? [{
           label       : 'Portfolio',
           data        : portIdx,
           borderColor : '#6366f1',
@@ -2120,7 +2127,7 @@ function renderPerfChart(days) {
           tension     : 0.3,
           fill        : true,
           spanGaps    : true,
-        },
+        }] : []),
         {
           label       : 'Nifty 50',
           data        : n50Idx,
