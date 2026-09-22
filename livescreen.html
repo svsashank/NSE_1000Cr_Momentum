@@ -87,10 +87,6 @@
 
   /* ── Misc ── */
   .empty { color: var(--muted); padding: 32px; text-align: center; }
-  .scr-field { display:flex;flex-direction:column;gap:4px; }
-  .scr-field label { font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px; }
-  .scr-field input { padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;width:100%;box-sizing:border-box; }
-  .scr-field input::placeholder { color:var(--muted); }
   .section-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
   .alert { padding: 12px 16px; border-radius: 8px; font-size: var(--small); margin-bottom: 16px; }
   .alert.info { background: rgba(91,143,255,.1); border: 1px solid rgba(91,143,255,.3); color: var(--accent); }
@@ -139,7 +135,7 @@
   .tab { transition: color .15s ease, background .15s ease, border-color .15s ease; }
 
   /* Cards + tables: soft depth */
-  .run-card, #scr-controls { box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+  .run-card { box-shadow: 0 2px 10px rgba(0,0,0,.18); }
   .tbl-wrap { box-shadow: 0 2px 12px rgba(0,0,0,.2); }
   tr { transition: background .12s ease; }
 
@@ -182,10 +178,6 @@
     /* All Parameters + Gold grids collapse to single column */
     #panel-params [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
 
-    /* Screener filter grid: comfortable 2-up */
-    #scr-controls [style*="grid-template-columns"] { grid-template-columns: 1fr 1fr !important; }
-    #scr-header { flex-wrap: wrap; gap: 6px; }
-    #scr-summary { flex-wrap: wrap; gap: 10px !important; }
 
     .run-card { gap: 10px; padding: 12px 14px; }
   }
@@ -193,7 +185,6 @@
   /* ── Narrow phones ── */
   @media (max-width: 400px) {
     .crud-row input, .crud-row .btn-sm { flex-basis: 100%; }
-    #scr-controls [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
     .tab { padding: 9px 12px; }
   }
 
@@ -231,7 +222,7 @@
   }
 
   /* Surfaces get a hairline top highlight for depth */
-  .run-card, #scr-controls, .status-box, .tbl-wrap {
+  .run-card, .status-box, .tbl-wrap {
     box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 2px 12px rgba(0,0,0,.22);
   }
 
@@ -266,7 +257,7 @@
   #runBtn { box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 4px 14px rgba(91,143,255,.30); }
 
   /* ── Inputs: a touch softer ── */
-  #patInput, .crud-row input, .scr-field input, .field input {
+  #patInput, .crud-row input, .field input {
     box-shadow: inset 0 1px 2px rgba(0,0,0,.18);
   }
 
@@ -401,7 +392,6 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
   <div class="tab" onclick="switchTab('delta',this)">Rebalance Delta</div>
   <div class="tab" onclick="switchTab('history',this)">Run History</div>
   <div class="tab" onclick="switchTab('performance',this)">📈 Performance</div>
-  <div class="tab" onclick="switchTab('screener',this)">🔍 Screener</div>
 </div>
 
 <div id="panel-top15"    class="panel active"><div class="empty">Run a screen or wait for data to load…</div></div>
@@ -458,54 +448,6 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
     </div>
   </div>
 </div>
-
-<div id="panel-screener" class="panel">
-  <!-- Header bar with date stamp -->
-  <div id="scr-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-    <div>
-      <span style="font-weight:600;font-size:15px;">Stock Screener</span>
-      <span id="scr-date-badge" style="margin-left:10px;padding:2px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);font-size:11px;color:var(--muted);"></span>
-    </div>
-    <span style="font-size:11px;color:var(--muted);">Data from last screen run · re-run screen to refresh</span>
-  </div>
-
-  <!-- Filter controls -->
-  <div id="scr-controls" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:12px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <span style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Filters</span>
-      <div style="display:flex;gap:8px;">
-        <button onclick="resetScreener()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:12px;cursor:pointer;">Reset</button>
-        <button onclick="applyScreener()" style="padding:5px 14px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">Apply</button>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px;">
-      <div class="scr-field"><label>Price ₹ — min</label><input type="number" id="sf-price-min" placeholder="e.g. 100"></div>
-      <div class="scr-field"><label>Price ₹ — max</label><input type="number" id="sf-price-max" placeholder="e.g. 5000"></div>
-      <div class="scr-field"><label>MCap ₹Cr — min</label><input type="number" id="sf-mcap-min" placeholder="e.g. 1000"></div>
-      <div class="scr-field"><label>MCap ₹Cr — max</label><input type="number" id="sf-mcap-max" placeholder="e.g. 50000"></div>
-      <div class="scr-field"><label>ADV ₹Cr — min</label><input type="number" id="sf-adv-min" placeholder="e.g. 10"></div>
-      <div class="scr-field"><label>RSI — min</label><input type="number" id="sf-rsi-min" placeholder="e.g. 50" min="0" max="100"></div>
-      <div class="scr-field"><label>RSI — max</label><input type="number" id="sf-rsi-max" placeholder="e.g. 80" min="0" max="100"></div>
-      <div class="scr-field"><label>Volatility % — max</label><input type="number" id="sf-vol-max" placeholder="e.g. 75"></div>
-      <div class="scr-field"><label>CMF — min</label><input type="number" id="sf-cmf-min" placeholder="e.g. 0.1" step="0.05"></div>
-      <div class="scr-field"><label>% from 52W High — max loss</label><input type="number" id="sf-high-max" placeholder="e.g. 25" min="0" max="100"></div>
-      <div class="scr-field"><label>Rank Score — min</label><input type="number" id="sf-rank-min" placeholder="e.g. 1.0" step="0.1"></div>
-      <div class="scr-field">
-        <label>Momentum status</label>
-        <select id="sf-passes-all" style="padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">
-          <option value="">Any</option>
-          <option value="all">✓ Passes all filters</option>
-          <option value="near">⚡ Near miss (fails exactly 1)</option>
-          <option value="none">✗ Fails 2+ filters</option>
-        </select>
-      </div>
-    </div>
-  </div>
-
-  <div id="scr-summary" style="font-size:12px;color:var(--muted);margin-bottom:8px;display:flex;gap:16px;"></div>
-  <div id="scr-table"><div class="empty">Run a screen first, then use filters above.</div></div>
-</div>
-
 
 <div id="panel-params" class="panel">
   <div style="max-width:700px">
@@ -747,7 +689,6 @@ async function loadLatestScreen() {
     latestTop15    = run.top15       || [];
     latestPassing  = run.all_passing || [];
     latestHoldZone = run.hold_zone   || [];
-    scrScreenDate  = run.run_date    || '';
 
     window._latestFilters = run.filters || {};
     renderTop15(run.run_date, run.filters);
@@ -1782,188 +1723,12 @@ async function loadHistory() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadAll();
 
-// ── Screener tab ──────────────────────────────────────────────────────────────
-let scrSortCol = 'rank_score';
-let scrSortAsc = false;
-let scrScreenDate = '';
-
-function val(id) {
-  const v = document.getElementById(id)?.value;
-  return v === '' || v === null || v === undefined ? null : parseFloat(v);
-}
-
-function countFailures(r) {
-  return [r.p_mcap, r.p_adv, r.p_vol, r.p_rsi, r.p_sma, r.p_high, r.p_cmf]
-    .filter(v => v === false || v === 0).length;
-}
-
-function applyScreener() {
-  if (!latestUniverse.length) {
-    document.getElementById('scr-table').innerHTML = '<div class="empty">No universe data — run a screen first.</div>';
-    return;
-  }
-
-  // Update date badge
-  const badge = document.getElementById('scr-date-badge');
-  if (badge && scrScreenDate) badge.textContent = 'Data as of ' + scrScreenDate;
-
-  const priceMin = val('sf-price-min');
-  const priceMax = val('sf-price-max');
-  const mcapMin  = val('sf-mcap-min');
-  const mcapMax  = val('sf-mcap-max');
-  const advMin   = val('sf-adv-min');
-  const rsiMin   = val('sf-rsi-min');
-  const rsiMax   = val('sf-rsi-max');
-  const volMax   = val('sf-vol-max');
-  const cmfMin   = val('sf-cmf-min');
-  const highMax  = val('sf-high-max');
-  const rankMin  = val('sf-rank-min');
-  const statusVal = document.getElementById('sf-passes-all').value;
-
-  let results = latestUniverse.filter(r => {
-    if (priceMin !== null && (r.price  ?? 0)           < priceMin) return false;
-    if (priceMax !== null && (r.price  ?? Infinity)     > priceMax) return false;
-    if (mcapMin  !== null && (r.mcap_m ?? 0)            < mcapMin)  return false;
-    if (mcapMax  !== null && (r.mcap_m ?? Infinity)     > mcapMax)  return false;
-    if (advMin   !== null && (r.adv_m  ?? 0)            < advMin)   return false;
-    if (rsiMin   !== null && (r.rsi    ?? 0)            < rsiMin)   return false;
-    if (rsiMax   !== null && (r.rsi    ?? 100)          > rsiMax)   return false;
-    if (volMax   !== null && (r.volatility_pct ?? 999)  > volMax)   return false;
-    if (cmfMin   !== null && (r.cmf    ?? -1)           < cmfMin)   return false;
-    if (highMax  !== null && (r.pct_from_high ?? -999)  < -highMax) return false;
-    if (rankMin  !== null && (r.rank_score ?? 0)        < rankMin)  return false;
-    if (statusVal === 'all')  return !!r.passes_all;
-    if (statusVal === 'near') return !r.passes_all && countFailures(r) === 1;
-    if (statusVal === 'none') return !r.passes_all && countFailures(r) >= 2;
-    return true;
-  });
-
-  results.sort((a, b) => {
-    const av = a[scrSortCol] ?? -Infinity;
-    const bv = b[scrSortCol] ?? -Infinity;
-    return scrSortAsc ? av - bv : bv - av;
-  });
-
-  renderScreenerTable(results);
-}
-
-function resetScreener() {
-  ['sf-price-min','sf-price-max','sf-mcap-min','sf-mcap-max','sf-adv-min',
-   'sf-rsi-min','sf-rsi-max','sf-vol-max','sf-cmf-min','sf-high-max','sf-rank-min'
-  ].forEach(id => { document.getElementById(id).value = ''; });
-  document.getElementById('sf-passes-all').value = '';
-  applyScreener();
-}
-
-function setScrSort(col) {
-  if (scrSortCol === col) scrSortAsc = !scrSortAsc;
-  else { scrSortCol = col; scrSortAsc = false; }
-  applyScreener();
-}
-
-function renderScreenerTable(rows) {
-  const topSet     = new Set(latestTop15.map(r => r.ticker));
-  const passingSet = new Set(latestPassing.map(r => r.ticker));
-  const filterKeys   = ['p_mcap','p_adv','p_vol','p_rsi','p_sma','p_high','p_cmf'];
-  const filterLabels = ['MCap','ADV','Vol','RSI','SMA','52W','CMF'];
-
-  // Summary chips
-  const total    = latestUniverse.length;
-  const passing  = latestUniverse.filter(r => r.passes_all).length;
-  const nearMiss = latestUniverse.filter(r => !r.passes_all && countFailures(r) === 1).length;
-  const chip = (label, val, color) =>
-    `<span style="padding:2px 10px;border-radius:20px;background:${color}22;color:${color};font-size:11px;font-weight:600;">${label}: ${val}</span>`;
-  document.getElementById('scr-summary').innerHTML =
-    chip('Showing', rows.length + ' of ' + total, 'var(--text)') +
-    chip('Passes all', passing, 'var(--green)') +
-    chip('Near miss', nearMiss, '#f59e0b') +
-    `<span style="font-size:11px;color:var(--muted);margin-left:4px;">· sorted by <strong>${scrSortCol}</strong> ${scrSortAsc ? '▲' : '▼'}</span>`;
-
-  if (!rows.length) {
-    document.getElementById('scr-table').innerHTML = '<div class="empty">No stocks match the current filters.</div>';
-    return;
-  }
-
-  const cols = [
-    { key:'ticker',         label:'Ticker',         noSort:true },
-    { key:'price',          label:'Price ₹' },
-    { key:'mcap_m',         label:'MCap ₹Cr' },
-    { key:'adv_m',          label:'ADV ₹Cr' },
-    { key:'rsi',            label:'RSI' },
-    { key:'volatility_pct', label:'Vol %' },
-    { key:'cmf',            label:'CMF' },
-    { key:'pct_from_high',  label:'% 52W High' },
-    { key:'rank_score',     label:'Rank Score' },
-  ];
-
-  const arrow = col => scrSortCol !== col
-    ? '<span style="color:var(--muted);opacity:.35">⇅</span>'
-    : (scrSortAsc ? '▲' : '▼');
-
-  let html = `<div class="tbl-wrap"><table><thead><tr><th>#</th>`;
-  cols.forEach(c => {
-    html += c.noSort
-      ? `<th>${c.label}</th>`
-      : `<th style="cursor:pointer;user-select:none" onclick="setScrSort('${c.key}')">${c.label} ${arrow(c.key)}</th>`;
-  });
-  // Per-filter columns
-  filterLabels.forEach(l => { html += `<th style="text-align:center">${l}</th>`; });
-  html += '</tr></thead><tbody>';
-
-  const tick  = '<span style="color:var(--green);font-size:13px">✓</span>';
-  const cross = '<span style="color:var(--red);font-size:13px">✗</span>';
-
-  rows.forEach((r, i) => {
-    const inTopN    = topSet.has(r.ticker);
-    const inPassing = passingSet.has(r.ticker);
-    const failures  = countFailures(r);
-    let rowStyle = '', tickerStyle = '', badge = '';
-    if (inTopN && r.is_near_miss) { rowStyle = 'background:rgba(245,180,0,.09);'; tickerStyle = 'color:#f5b800;'; badge = ' ~'; }
-    else if (inTopN)      { rowStyle = 'background:rgba(62,207,142,.07);'; tickerStyle = 'color:var(--green);'; badge = ' ★'; }
-    else if (inPassing) { rowStyle = 'background:rgba(91,143,255,.05);'; tickerStyle = 'color:var(--accent);'; }
-    else if (r.is_near_miss) { rowStyle = 'background:rgba(245,180,0,.05);'; tickerStyle = 'color:#f5b800;'; }
-    else if (failures === 1) { rowStyle = 'background:rgba(245,158,11,.04);'; }
-
-    const filterCells = filterKeys.map((k, ki) => {
-      if (r[k]) return `<td style="text-align:center">${tick}</td>`;
-      // Check if this filter is the one near-miss filter for this row
-      const filterName = ['mcap','adv','vol','rsi','sma','high','cmf'][ki];
-      if (r.is_near_miss && r.near_miss_filter === filterName) {
-        return `<td style="text-align:center" title="Near-miss: within 10% of threshold"><span style="font-size:13px">🟡</span></td>`;
-      }
-      return `<td style="text-align:center">${cross}</td>`;
-    }).join('');
-
-    html += `<tr style="${rowStyle}">
-      <td class="rank">${i + 1}</td>
-      <td class="ticker-cell" style="${tickerStyle}">${r.ticker}${badge}</td>
-      <td>₹${fmtNum(r.price)}</td>
-      <td>${fmtNum(r.mcap_m, 0)}</td>
-      <td>${fmtNum(r.adv_m, 1)}</td>
-      <td>${fmtNum(r.rsi, 1)}</td>
-      <td>${fmtNum(r.volatility_pct, 1)}%</td>
-      <td>${fmtNum(r.cmf, 3)}</td>
-      <td>${fmtNum(r.pct_from_high, 1)}%</td>
-      <td>${r.rank_score != null ? fmtNum(r.rank_score, 4) : '—'}</td>
-      ${filterCells}
-    </tr>`;
-  });
-
-  html += '</tbody></table></div>';
-  document.getElementById('scr-table').innerHTML = html;
-}
-
 // Hook switchTab to set date badge + auto-apply on screener open, load perf on first visit
 (function() {
   const origSwitch = window.switchTab;
   let perfLoaded = false;
   window.switchTab = function(id, el) {
     origSwitch(id, el);
-    if (id === 'screener') {
-      const badge = document.getElementById('scr-date-badge');
-      if (badge && scrScreenDate) badge.textContent = 'Data as of ' + scrScreenDate;
-      if (latestUniverse.length) applyScreener();
-    }
     if (id === 'performance') {
       if (!perfLoaded) { perfLoaded = true; loadPerformance(); }
     }
