@@ -5,7 +5,10 @@ on:
     # Runs every 5 days at 08:00 UTC — keeps Supabase free tier from pausing
     # (Supabase pauses after 7 days of inactivity on free tier)
     - cron: '0 8 */5 * *'
-  workflow_dispatch:  # allow manual trigger from GitHub UI
+    # Safety net: also runs Mon-Fri at 14:00 UTC (19:30 IST) — triggers the
+    # screen if both primary (11:00) and backup (13:30) crons were skipped by GitHub.
+    - cron: '0 14 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   keepalive:
@@ -21,7 +24,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          python - <<'EOF'
+          python - <<'PYEOF'
           import os
           from supabase import create_client
 
@@ -33,4 +36,49 @@ jobs:
               print(f'✅ Supabase alive — last screen run: {row["run_date"]}')
           else:
               print('✅ Supabase alive — no screen runs yet')
-          EOF
+          PYEOF
+
+      - name: Trigger screen if not run today (weekdays only)
+        # Only runs when triggered by the 14:00 UTC Mon-Fri schedule.
+        # Checks if a screen run already exists for today — if not, fires one.
+        if: github.event_name == 'schedule'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PYEOF'
+          import os, urllib.request, json
+          from datetime import date, datetime
+
+          # Only act on weekdays
+          if datetime.utcnow().weekday() >= 5:
+              print('Weekend — skipping screen check')
+              exit(0)
+
+          from supabase import create_client
+          sb   = create_client(os.environ['SUPABASE_URL'], os.environ['SUPABASE_KEY'])
+          resp = sb.table('screen_runs').select('run_date').order('run_date', desc=True).limit(1).execute()
+          last = resp.data[0]['run_date'] if resp.data else None
+          today = str(date.today())
+
+          if last == today:
+              print(f'✅ Screen already ran today ({today}) — nothing to do')
+              exit(0)
+
+          print(f'⚠ No screen run found for {today} (last: {last}) — triggering now')
+
+          token = os.environ['GH_TOKEN']
+          payload = json.dumps({"ref": "main"}).encode()
+          req = urllib.request.Request(
+              'https://api.github.com/repos/svsashank/NSE_1000Cr_Momentum/actions/workflows/run_screen.yml/dispatches',
+              data=payload, method='POST',
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Content-Type': 'application/json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              }
+          )
+          with urllib.request.urlopen(req) as r:
+              print(f'✅ Screen dispatch sent (HTTP {r.status})')
+          PYEOF
