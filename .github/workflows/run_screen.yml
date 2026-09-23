@@ -4,12 +4,14 @@ on:
   repository_dispatch:
     types: [run_screen]
   schedule:
-    # Primary: 11:00 UTC = 16:30 IST, Mon-Fri
-    - cron: '0 11 * * 1-5'
-    # Backup: 13:30 UTC = 19:00 IST, Mon-Fri
-    # GitHub's free-tier scheduler can be hours late or skip entirely.
-    # The screener is idempotent (upserts by run_date) so running twice is safe.
-    - cron: '30 13 * * 1-5'
+    # Primary: 11:17 UTC = 16:47 IST — non-round minute reduces GitHub queue collision
+    - cron: '17 11 * * 1-5'
+    # Backup 1: 12:37 UTC = 18:07 IST
+    - cron: '37 12 * * 1-5'
+    # Backup 2: 13:47 UTC = 19:17 IST
+    - cron: '47 13 * * 1-5'
+    # The screener is idempotent (upserts by run_date) so running multiple times is safe.
+    # Keepalive workflow provides an additional safety net at 14:00 UTC.
   workflow_dispatch:
 
 jobs:
