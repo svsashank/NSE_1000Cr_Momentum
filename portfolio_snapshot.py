@@ -21,9 +21,38 @@ SUPABASE_KEY = os.environ['SUPABASE_KEY']
 GOLDBEES_SYM   = 'GOLDBEES.NS'
 LIQUIDCASE_SYM = 'LIQUIDCASE.NS'
 NIFTY50_SYM    = '^NSEI'
-NIFTY500_SYM   = '^CNX500'
+# Nifty 500: yfinance ticker is inconsistent; try multiple known symbols
+NIFTY500_SYMS  = ['^CNX500', 'CNX500.NS', '^NSEI500']
 
-def clean(val):
+def fetch_single_close(sym):
+    """Fetch last close for a single ticker. Returns None on failure."""
+    try:
+        t = yf.Ticker(sym)
+        hist = t.history(period='5d')
+        if not hist.empty and not hist['Close'].dropna().empty:
+            return float(hist['Close'].dropna().iloc[-1])
+    except Exception:
+        pass
+    return None
+
+def fetch_benchmark_closes():
+    """Fetch last close for Nifty 50 and Nifty 500."""
+    # Nifty 50
+    n50 = fetch_single_close(NIFTY50_SYM)
+
+    # Nifty 500 — try each known symbol until one works
+    n500 = None
+    for sym in NIFTY500_SYMS:
+        val = fetch_single_close(sym)
+        if val is not None:
+            print(f'  Nifty 500 fetched via {sym}: {val}')
+            n500 = val
+            break
+    if n500 is None:
+        print(f'  ⚠ Nifty 500: all symbols failed {NIFTY500_SYMS}')
+
+    print(f'  Nifty 50: {n50}  Nifty 500: {n500}')
+    return n50, n500
     if val is None: return None
     try:
         if isinstance(val, float) and (math.isnan(val) or math.isinf(val)): return None
@@ -33,33 +62,6 @@ def clean(val):
             return None if (math.isnan(v) or math.isinf(v)) else round(v, 4)
     except: pass
     return val
-
-def fetch_price(sym):
-    """Fetch last close for a single ticker. Returns None on failure."""
-    try:
-        t = yf.Ticker(sym)
-        hist = t.history(period='5d')
-        if hist.empty: return None
-        return float(hist['Close'].dropna().iloc[-1])
-    except:
-        return None
-
-def fetch_benchmark_closes():
-    """Fetch last close for Nifty 50 and Nifty 500."""
-    n50, n500 = None, None
-    try:
-        data = yf.download([NIFTY50_SYM, NIFTY500_SYM], period='5d',
-                           progress=False, auto_adjust=True)
-        if not data.empty:
-            closes = data['Close'] if 'Close' in data else data
-            if NIFTY50_SYM in closes.columns:
-                n50 = float(closes[NIFTY50_SYM].dropna().iloc[-1])
-            if NIFTY500_SYM in closes.columns:
-                n500 = float(closes[NIFTY500_SYM].dropna().iloc[-1])
-    except Exception as e:
-        print(f'  ⚠ Benchmark fetch failed: {e}')
-    print(f'  Nifty 50: {n50}  Nifty 500: {n500}')
-    return n50, n500
 
 def main():
     print('\n' + '='*50)
@@ -129,7 +131,7 @@ def main():
                 # Fallback: fetch directly from yfinance for GOLDBEES etc.
                 if price is None:
                     yf_sym = ticker if ticker.endswith('.NS') else f'{ticker}.NS'
-                    price  = fetch_price(yf_sym)
+                    price  = fetch_single_close(yf_sym)
                     if price:
                         print(f'    {owner} / {ticker}: fetched via yf fallback ₹{price:.2f}')
 
