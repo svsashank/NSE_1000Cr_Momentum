@@ -1883,19 +1883,19 @@ function renderPerfChart(days) {
       (hasPortfolio ? (() => {
         const last      = filtered.at(-1);
         const mktVal    = last.total_value ?? 0;
-        const invested  = last.cost_basis  ?? 0;
-        const pnl       = invested > 0 ? mktVal - invested : null;
-        const pnlPct    = invested > 0 ? ((mktVal / invested - 1) * 100).toFixed(1) : null;
+        const invested  = last.cost_basis ?? null;
+        const pnl       = invested != null && invested > 0 ? mktVal - invested : null;
+        const pnlPct    = invested != null && invested > 0 ? ((mktVal / invested - 1) * 100).toFixed(1) : null;
         const pnlCol    = pnl != null ? (pnl >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)') : 'inherit';
         return `
           <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Market value</div>
             <div style="font-size:18px;font-weight:700;">₹${fmtNum(mktVal,0)}</div>
           </div>
-          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
+          ${invested != null ? `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Invested (cost basis)</div>
             <div style="font-size:18px;font-weight:700;">₹${fmtNum(invested,0)}</div>
-          </div>
+          </div>` : ''}
           ${pnl != null ? `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Unrealised P&L</div>
             <div style="font-size:18px;font-weight:700;color:${pnlCol};">${pnl>=0?'+':''}₹${fmtNum(Math.abs(pnl),0)} (${pnl>=0?'+':''}${pnlPct}%)</div>
