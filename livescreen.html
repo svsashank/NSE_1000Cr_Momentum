@@ -442,7 +442,7 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
     <button class="btn-sm" onclick="togglePerfTable()" id="perf-table-toggle">Show data table</button>
     <div id="perf-table-wrap" style="display:none;overflow-x:auto;margin-top:8px;">
       <table class="data-table" id="perf-data-table">
-        <thead><tr><th>Date</th><th>Portfolio (₹)</th><th>Portfolio idx</th><th>Nifty 50 idx</th><th>Nifty 500 idx</th></tr></thead>
+        <thead><tr><th>Date</th><th>Market Value</th><th>Invested</th><th>Portfolio idx (TWR)</th><th>Nifty 50 idx</th><th>Nifty 500 idx</th></tr></thead>
         <tbody id="perf-table-body"></tbody>
       </table>
     </div>
@@ -1754,7 +1754,7 @@ async function loadPerformance() {
   if (statusEl) statusEl.textContent = 'Loading…';
   try {
     const rows = await sb(
-      `portfolio_history?owner=eq.${PORTFOLIO_OWNER}&order=snapshot_date.asc&select=snapshot_date,total_value,nifty50_close,nifty500_close`
+      `portfolio_history?owner=eq.${PORTFOLIO_OWNER}&order=snapshot_date.asc&select=snapshot_date,total_value,cost_basis,nifty50_close,nifty500_close`
     ) || [];
     perfAllData = rows;
     const hasPortfolioData = rows.some(r => r.total_value != null);
@@ -1804,17 +1804,55 @@ function renderPerfChart(days) {
 
   const hasPortfolio = filtered.some(r => r.total_value != null);
 
-  // Index to 100 on first date
-  const base = {
-    port : filtered[0].total_value   || 1,
-    n50  : filtered[0].nifty50_close  || 1,
-    n500 : filtered[0].nifty500_close || 1,
-  };
+  // ── Time-Weighted Return (TWR) for portfolio ─────────────────────────────
+  // Each day's return = (market_value_today - injection) / market_value_yesterday - 1
+  // Injection on day N = max(0, cost_basis_N - cost_basis_N-1)
+  // This strips out fresh capital deployments automatically — no user input needed.
+  // Benchmarks use simple indexing (no capital flows).
 
-  const labels   = filtered.map(r => r.snapshot_date);
-  const portIdx  = filtered.map(r => r.total_value    != null ? +((r.total_value    / base.port) * 100).toFixed(2) : null);
-  const n50Idx   = filtered.map(r => r.nifty50_close  != null ? +((r.nifty50_close  / base.n50)  * 100).toFixed(2) : null);
-  const n500Idx  = filtered.map(r => r.nifty500_close != null ? +((r.nifty500_close / base.n500) * 100).toFixed(2) : null);
+  const labels  = filtered.map(r => r.snapshot_date);
+  const n50Idx  = filtered.map(r => r.nifty50_close  != null ? +((r.nifty50_close  / (filtered[0].nifty50_close  || 1)) * 100).toFixed(2) : null);
+  const n500Idx = filtered.map(r => r.nifty500_close != null ? +((r.nifty500_close / (filtered[0].nifty500_close || 1)) * 100).toFixed(2) : null);
+
+  // TWR chain: compound daily factor across all days
+  const portIdx = (() => {
+    const result = [null]; // day 0 = base, filled below
+    let cumFactor = 1.0;
+
+    for (let i = 0; i < filtered.length; i++) {
+      const r    = filtered[i];
+      const prev = i > 0 ? filtered[i - 1] : null;
+
+      if (r.total_value == null) {
+        result[i] = null;
+        continue;
+      }
+
+      if (i === 0) {
+        result[0] = 100;
+        continue;
+      }
+
+      if (prev == null || prev.total_value == null) {
+        result[i] = 100;
+        cumFactor  = 1.0;
+        continue;
+      }
+
+      // Detect capital injection: cost_basis went up since yesterday
+      const cbToday = r.cost_basis    ?? 0;
+      const cbPrev  = prev.cost_basis ?? 0;
+      const injection = Math.max(0, cbToday - cbPrev);
+
+      // Adjusted numerator strips out the injection
+      const adjustedValue = r.total_value - injection;
+      const dayReturn     = (adjustedValue / prev.total_value) - 1;
+
+      cumFactor   *= (1 + dayReturn);
+      result[i]    = +(cumFactor * 100).toFixed(2);
+    }
+    return result;
+  })();
 
   // Compute stats
   const lastPort  = portIdx.at(-1)  ?? 100;
@@ -1842,10 +1880,27 @@ function renderPerfChart(days) {
       statCard('Nifty 50 return',  n50Ret)   +
       statCard('Nifty 500 return', n500Ret)  +
       (hasPortfolio ? statCard('vs Nifty 50 (alpha)', portVsN50, '%', true) : '') +
-      (hasPortfolio ? `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Portfolio value</div>
-        <div style="font-size:18px;font-weight:700;">₹${fmtNum(filtered.at(-1).total_value,0)}</div>
-       </div>` : `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;color:var(--muted);font-size:12px;">Import your portfolio to track value vs benchmarks</div>`);
+      (hasPortfolio ? (() => {
+        const last      = filtered.at(-1);
+        const mktVal    = last.total_value ?? 0;
+        const invested  = last.cost_basis  ?? 0;
+        const pnl       = invested > 0 ? mktVal - invested : null;
+        const pnlPct    = invested > 0 ? ((mktVal / invested - 1) * 100).toFixed(1) : null;
+        const pnlCol    = pnl != null ? (pnl >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)') : 'inherit';
+        return `
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Market value</div>
+            <div style="font-size:18px;font-weight:700;">₹${fmtNum(mktVal,0)}</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Invested (cost basis)</div>
+            <div style="font-size:18px;font-weight:700;">₹${fmtNum(invested,0)}</div>
+          </div>
+          ${pnl != null ? `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Unrealised P&L</div>
+            <div style="font-size:18px;font-weight:700;color:${pnlCol};">${pnl>=0?'+':''}₹${fmtNum(Math.abs(pnl),0)} (${pnl>=0?'+':''}${pnlPct}%)</div>
+          </div>` : ''}`;
+      })() : `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 16px;color:var(--muted);font-size:12px;">Import your portfolio to track value vs benchmarks</div>`);
   }
 
   // Populate data table
@@ -1857,7 +1912,8 @@ function renderPerfChart(days) {
       const n5 = n500Idx[filtered.length-1-i];
       return `<tr>
         <td>${r.snapshot_date}</td>
-        <td>₹${fmtNum(r.total_value,0)}</td>
+        <td>${r.total_value != null ? '₹'+fmtNum(r.total_value,0) : '—'}</td>
+        <td>${r.cost_basis  != null ? '₹'+fmtNum(r.cost_basis, 0) : '—'}</td>
         <td>${pi??'—'}</td>
         <td>${ni??'—'}</td>
         <td>${n5??'—'}</td>
