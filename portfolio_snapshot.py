@@ -22,8 +22,11 @@ SUPABASE_URL   = os.environ['SUPABASE_URL']
 SUPABASE_KEY   = os.environ['SUPABASE_KEY']
 
 NIFTY50_SYM    = '^NSEI'
-# Nifty 500: yfinance ticker is inconsistent; try each in order
-NIFTY500_SYMS  = ['^CNX500', 'CNX500.NS', '^NSEI500']
+# Nifty 500: ^CNX500 is no longer available on Yahoo Finance.
+# NETF.NS (Nippon India Nifty 500 Index Fund) tracks Nifty 500 and is available via yfinance.
+# NIFTYBEES.NS (Nifty 50 ETF) is a fallback sanity check only.
+# We store the raw ETF price — the chart indexes it to 100 on first date so the unit doesn't matter.
+NIFTY500_SYMS  = ['NETF.NS', 'MOM100.NS', '^CNX500']
 
 
 def fetch_single_close(sym):
