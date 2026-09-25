@@ -570,6 +570,11 @@ async function triggerRun() {
   const pat = document.getElementById('patInput').value.trim();
   if (!pat) { setRunStatus('Paste your GitHub PAT first.', 'err'); return; }
 
+  // Ensure config defaults are loaded before reading params — prevents
+  // stale HTML fallback values being sent if user clicks Run before
+  // the async config.json fetch completes.
+  if (!CONFIG_DEFAULTS) await loadConfigDefaults();
+
   const btn = document.getElementById('runBtn');
   btn.disabled = true;
   btn.classList.add('running');
