@@ -227,8 +227,13 @@ def run_screen(ind, config, surveillance_tickers=None):
     top_n_df = pd.DataFrame(top_n_rows).reset_index(drop=True)
     top_n_df.index += 1
 
-    # All passing: strict passes only, ranked by rank_score (universe order preserved)
-    all_passing = universe_df[universe_df['passes_all']].copy().reset_index(drop=True)
+    # All passing: strict passes + near-misses within top 50 of full universe,
+    # ranked by rank_score. Near-misses are included so the All Passing tab
+    # reflects the same eligible set used for top-N entry and hold protection.
+    all_passing = universe_df[
+        universe_df['passes_all'] |
+        (universe_df['is_near_miss'] & (universe_df.index <= 50))
+    ].copy().reset_index(drop=True)
     all_passing.index += 1
 
     # Hold zone: top HOLD_ZONE_SIZE among eligible stocks (strict passes + near-misses
@@ -247,7 +252,7 @@ def run_screen(ind, config, surveillance_tickers=None):
 
     print(f'\n✅ Screen date  : {screen_date.date()}')
     print(f'   Universe     : {len(universe_df)} (valid data)')
-    print(f'   Passing      : {len(all_passing)} (strict)')
+    print(f'   Passing      : {len(all_passing)} (strict + near-miss)')
     print(f'   Near-miss promoted: {n_promoted}')
     print(f'   Hold zone    : {len(hold_zone_df)} (top {HOLD_ZONE_SIZE})')
     print(f'   Cash slots   : {n_cash}')
