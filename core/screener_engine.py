@@ -202,36 +202,37 @@ def run_screen(ind, config, surveillance_tickers=None):
     if not passed.any() and not any(is_near_miss_map.values()):
         return pd.DataFrame(), pd.DataFrame(), universe_df, pd.DataFrame(), rejections, screen_date, no_data_tickers
 
-    # ── Build Top N and Hold Zone: walk universe by rank ─────────────────────────
-    # Include each stock if strict pass OR near-miss (within top 50 by rank).
-    # Walk continues to HOLD_ZONE_SIZE to define the anti-whipsaw hold buffer.
-    # A higher-ranked near-miss always beats a lower-ranked strict pass.
+    # ── Build Top N and Hold Zone ─────────────────────────────────────────────
+    # Top N: walk full universe by rank, include strict passes and near-misses
+    # (near-miss eligible only within top 50 of full universe).
+    # Hold Zone: top HOLD_ZONE_SIZE of ALL PASSING stocks only (strict passes,
+    # ranked by rank_score). A stock must pass ALL filters to be in the hold zone —
+    # near-misses are eligible for the top 15 entry but not for hold protection.
     HOLD_ZONE_SIZE = config.get('hold_zone_size', 25)
 
-    top_n_rows    = []   # top PORTFOLIO_SIZE eligible stocks
-    hold_zone_rows = []  # top HOLD_ZONE_SIZE eligible stocks
-    n_promoted    = 0
+    top_n_rows = []   # top PORTFOLIO_SIZE eligible stocks (strict + near-miss)
+    n_promoted = 0
 
     for rank_position, row in universe_df.iterrows():
-        # rank_position is 1-based (universe_df.index starts at 1)
-        if len(hold_zone_rows) >= HOLD_ZONE_SIZE:
+        if len(top_n_rows) >= PORTFOLIO_SIZE:
             break
         eligible = row['passes_all'] or (row['is_near_miss'] and rank_position <= 50)
         if not eligible:
             continue
-        hold_zone_rows.append(row)
-        if len(top_n_rows) < PORTFOLIO_SIZE:
-            top_n_rows.append(row)
-            if row['is_near_miss']:
-                n_promoted += 1
+        top_n_rows.append(row)
+        if row['is_near_miss']:
+            n_promoted += 1
 
-    top_n_df      = pd.DataFrame(top_n_rows).reset_index(drop=True)
+    top_n_df = pd.DataFrame(top_n_rows).reset_index(drop=True)
     top_n_df.index += 1
-    hold_zone_df  = pd.DataFrame(hold_zone_rows).reset_index(drop=True)
-    hold_zone_df.index += 1
 
+    # All passing: strict passes only, ranked by rank_score (universe order preserved)
     all_passing = universe_df[universe_df['passes_all']].copy().reset_index(drop=True)
     all_passing.index += 1
+
+    # Hold zone: top HOLD_ZONE_SIZE of all_passing by rank_score
+    hold_zone_df = all_passing.head(HOLD_ZONE_SIZE).copy().reset_index(drop=True)
+    hold_zone_df.index += 1
 
     top15 = top_n_df.copy()
 
