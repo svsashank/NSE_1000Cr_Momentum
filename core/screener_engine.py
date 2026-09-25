@@ -205,9 +205,10 @@ def run_screen(ind, config, surveillance_tickers=None):
     # ── Build Top N and Hold Zone ─────────────────────────────────────────────
     # Top N: walk full universe by rank, include strict passes and near-misses
     # (near-miss eligible only within top 50 of full universe).
-    # Hold Zone: top HOLD_ZONE_SIZE of ALL PASSING stocks only (strict passes,
-    # ranked by rank_score). A stock must pass ALL filters to be in the hold zone —
-    # near-misses are eligible for the top 15 entry but not for hold protection.
+    # Hold Zone: top HOLD_ZONE_SIZE by rank_score among stocks that either pass
+    # all filters OR are near-misses within the top 50 of the full universe.
+    # Near-misses get hold protection — they entered via promotion and should not
+    # be force-sold on the next rebalance just because one filter is marginally failing.
     HOLD_ZONE_SIZE = config.get('hold_zone_size', 25)
 
     top_n_rows = []   # top PORTFOLIO_SIZE eligible stocks (strict + near-miss)
@@ -230,8 +231,13 @@ def run_screen(ind, config, surveillance_tickers=None):
     all_passing = universe_df[universe_df['passes_all']].copy().reset_index(drop=True)
     all_passing.index += 1
 
-    # Hold zone: top HOLD_ZONE_SIZE of all_passing by rank_score
-    hold_zone_df = all_passing.head(HOLD_ZONE_SIZE).copy().reset_index(drop=True)
+    # Hold zone: top HOLD_ZONE_SIZE among eligible stocks (strict passes + near-misses
+    # within top 50 of full universe), ranked by rank_score.
+    hold_zone_eligible = universe_df[
+        universe_df['passes_all'] |
+        (universe_df['is_near_miss'] & (universe_df.index <= 50))
+    ].copy().reset_index(drop=True)
+    hold_zone_df = hold_zone_eligible.head(HOLD_ZONE_SIZE).copy().reset_index(drop=True)
     hold_zone_df.index += 1
 
     top15 = top_n_df.copy()
