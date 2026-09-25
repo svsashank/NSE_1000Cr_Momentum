@@ -798,8 +798,11 @@ function renderPassing(runDate) {
     document.getElementById('panel-passing').innerHTML = '<div class="empty">No passing stocks.</div>';
     return;
   }
+  const nNearMiss = latestPassing.filter(r => r.is_near_miss).length;
+  const nStrict   = latestPassing.length - nNearMiss;
   let html = `<div class="alert info" style="margin-bottom:16px">
-    ${latestPassing.length} stocks passed all filters on ${runDate}
+    ${nStrict} stocks passed all filters on ${runDate}
+    ${nNearMiss ? `&nbsp;·&nbsp; <span style="color:var(--warning,#f59e0b)">${nNearMiss} near-miss</span> (promoted, within 10% of one threshold)` : ''}
   </div>
   <div class="tbl-wrap"><table>
   <thead><tr>
@@ -808,9 +811,12 @@ function renderPassing(runDate) {
   </tr></thead><tbody>`;
 
   latestPassing.forEach((r, i) => {
+    const nearMissBadge = r.is_near_miss
+      ? `<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(245,158,11,.18);color:#f59e0b;margin-left:4px;vertical-align:middle">~</span>`
+      : '';
     html += `<tr>
       <td class="rank">${r.index ?? i+1}</td>
-      <td class="ticker-cell">${r.ticker}</td>
+      <td class="ticker-cell">${r.ticker}${nearMissBadge}</td>
       <td>₹${fmtNum(r.price)}</td>
       <td>${fmtNum(r.rank_score, 4)}</td>
       <td>${fmtNum(r.rsi, 1)}</td>
