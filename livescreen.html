@@ -1806,17 +1806,16 @@ function renderPerfChart(days) {
 
   // ── Time-Weighted Return (TWR) for portfolio ─────────────────────────────
   // Each day's return = (market_value_today - injection) / market_value_yesterday - 1
-  // Injection on day N = max(0, cost_basis_N - cost_basis_N-1)
-  // This strips out fresh capital deployments automatically — no user input needed.
-  // Benchmarks use simple indexing (no capital flows).
+  // Injection = increase in cost_basis vs prior day — ONLY when both days have cost_basis.
+  // When prior day has no cost_basis (null), no injection is assumed — chain continues normally.
+  // This prevents the null→value transition from being misread as a capital injection.
 
   const labels  = filtered.map(r => r.snapshot_date);
   const n50Idx  = filtered.map(r => r.nifty50_close  != null ? +((r.nifty50_close  / (filtered[0].nifty50_close  || 1)) * 100).toFixed(2) : null);
   const n500Idx = filtered.map(r => r.nifty500_close != null ? +((r.nifty500_close / (filtered[0].nifty500_close || 1)) * 100).toFixed(2) : null);
 
-  // TWR chain: compound daily factor across all days
   const portIdx = (() => {
-    const result = [null]; // day 0 = base, filled below
+    const result = [];
     let cumFactor = 1.0;
 
     for (let i = 0; i < filtered.length; i++) {
@@ -1824,32 +1823,27 @@ function renderPerfChart(days) {
       const prev = i > 0 ? filtered[i - 1] : null;
 
       if (r.total_value == null) {
-        result[i] = null;
+        result.push(null);
         continue;
       }
 
-      if (i === 0) {
-        result[0] = 100;
+      if (i === 0 || prev == null || prev.total_value == null) {
+        // First data point or gap in data — reset to current cumFactor position
+        result.push(+(cumFactor * 100).toFixed(2));
         continue;
       }
 
-      if (prev == null || prev.total_value == null) {
-        result[i] = 100;
-        cumFactor  = 1.0;
-        continue;
+      // Only detect capital injection when BOTH days have cost_basis recorded
+      let injection = 0;
+      if (r.cost_basis != null && prev.cost_basis != null) {
+        injection = Math.max(0, r.cost_basis - prev.cost_basis);
       }
 
-      // Detect capital injection: cost_basis went up since yesterday
-      const cbToday = r.cost_basis    ?? 0;
-      const cbPrev  = prev.cost_basis ?? 0;
-      const injection = Math.max(0, cbToday - cbPrev);
-
-      // Adjusted numerator strips out the injection
       const adjustedValue = r.total_value - injection;
       const dayReturn     = (adjustedValue / prev.total_value) - 1;
 
       cumFactor   *= (1 + dayReturn);
-      result[i]    = +(cumFactor * 100).toFixed(2);
+      result.push(+(cumFactor * 100).toFixed(2));
     }
     return result;
   })();
