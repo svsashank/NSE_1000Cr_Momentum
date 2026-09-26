@@ -302,6 +302,11 @@ const SUPABASE_URL = 'https://ckvdwqzuklpvbpvqnmyu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrdmR3cXp1a2xwdmJwdnFubXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjU3NTMsImV4cCI6MjA5Njc0MTc1M30.MQ4y1iUgMUwRBYNQrmndode-6T9o92AyJcQJsH8rkWo';
 const GITHUB_OWNER = 'svsashank';
 // ── Portfolio owner ────────────────────────────────────────────────────────
+function switchUser() {
+  try { localStorage.removeItem('nse_owner'); } catch(e) {}
+  location.href = location.pathname;   // strip ?user= param, reload → shows chooser
+}
+
 // Resolved from ?user= ; remembered per-device so a dropped param never
 // silently lands someone on the wrong portfolio. Add names here as users grow.
 const KNOWN_USERS = ['sashank', 'sneha', 'abhilash'];
@@ -367,6 +372,7 @@ const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
 <div class="header">
   <h1>NSE Momentum Screener <span>· Full Universe</span></h1>
   <span id="headerOwner" style="display:none;padding:4px 14px;border-radius:999px;background:var(--accent,#2563eb);color:#fff;font-weight:700;font-size:14px;letter-spacing:.3px;white-space:nowrap"></span>
+  <button class="btn-sm" onclick="switchUser()" title="Switch user">🔄 Switch User</button>
   <a href="backtest.html" class="btn-sm" style="text-decoration:none;color:var(--text)">📊 Backtest</a>
   <a href="help.html" target="_blank" class="btn-sm" style="text-decoration:none;color:var(--text)" title="Open user guide in new tab">❓ Help</a>
 
