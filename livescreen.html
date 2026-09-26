@@ -307,9 +307,11 @@ const GITHUB_OWNER = 'svsashank';
 const KNOWN_USERS = ['sashank', 'sneha', 'abhilash'];
 function resolveOwner() {
   const p = new URLSearchParams(location.search).get('user');
-  if (p) { const v = p.trim().toLowerCase(); try { localStorage.setItem('nse_owner', v); } catch(e){} return v; }
-  try { const s = localStorage.getItem('nse_owner'); if (s) return s; } catch(e){}
-  return null;                       // unknown → show chooser, never default silently
+  if (p) {
+    const v = p.trim().toLowerCase();
+    if (KNOWN_USERS.includes(v)) return v;
+  }
+  return null;  // no ?user= param → hard wall, no fallback
 }
 const PORTFOLIO_OWNER = resolveOwner();
 // Live defaults loaded from config.json — the Parameters tab and Reset button
@@ -341,7 +343,7 @@ async function loadConfigDefaults() {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadConfigDefaults();
-  if (!PORTFOLIO_OWNER) { showOwnerChooser(); return; }
+  if (!PORTFOLIO_OWNER) { try { localStorage.removeItem('nse_owner'); } catch(e){} showOwnerChooser(); return; }
   const label = PORTFOLIO_OWNER.charAt(0).toUpperCase() + PORTFOLIO_OWNER.slice(1);
   document.title = `${label} · NSE Momentum`;
   const b = document.getElementById('ownerBadge');
@@ -350,13 +352,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (hp) { hp.textContent = `\uD83D\uDC64 ${label}`; hp.style.display = 'inline-block'; }
 });
 function showOwnerChooser() {
-  const btns = KNOWN_USERS.map(u => {
-    const L = u.charAt(0).toUpperCase() + u.slice(1);
-    return `<button onclick="location.href=location.pathname+'?user=${u}'" style="margin:6px;padding:10px 22px;font-size:15px;border-radius:8px;border:1px solid #888;background:#111;color:#fff;cursor:pointer">${L}</button>`;
-  }).join('');
   const o = document.createElement('div');
-  o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:inherit';
-  o.innerHTML = `<div style="font-size:18px;margin-bottom:14px">Who's portfolio is this?</div><div>${btns}</div>`;
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:inherit;text-align:center;padding:24px';
+  o.innerHTML = `
+    <div style="font-size:28px;margin-bottom:16px">🔒</div>
+    <div style="font-size:18px;font-weight:600;margin-bottom:10px">Personal link required</div>
+    <div style="font-size:14px;color:#aaa;max-width:320px;line-height:1.6">Please use your personal bookmark to access this screener. Each user has their own private link.</div>`;
   document.body.appendChild(o);
 }
 const GITHUB_REPO  = 'NSE_1000Cr_Momentum';
