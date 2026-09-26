@@ -863,7 +863,12 @@
         <div class="metric-card">
           <div class="metric-name">CMF</div>
           <div class="metric-val">0.18</div>
-          <div class="metric-note">Chaikin Money Flow. Positive means money is flowing into the stock — net institutional buying. The screener requires CMF above 0.05 to qualify.</div>
+          <div class="metric-note">Chaikin Money Flow. Positive means money is flowing into the stock — net institutional buying. The screener requires CMF above −0.1 to qualify.</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-name">Volatility %</div>
+          <div class="metric-val">64%</div>
+          <div class="metric-note">Annualised price volatility over the past 63 days. The screener allows up to 95% — stocks above this threshold are too erratic for systematic momentum investing.</div>
         </div>
       </div>
     </section>
@@ -908,8 +913,8 @@
           <div class="badge-emoji">✨</div>
           <div class="badge-info">
             <div class="badge-name">Near-miss promotion</div>
-            <div class="badge-desc">This stock failed exactly one filter by a very small margin (within 10% of the threshold). It was promoted into the top 15 because it ranks higher than a strict pass that would otherwise fill the slot. A borderline qualifier — treat it as normal, but be aware.</div>
-            <div class="badge-action info">Normal position — borderline qualifier</div>
+            <div class="badge-desc">This stock failed exactly one filter by a very small margin (within 10% of the threshold). It was promoted into the top 15 because it ranks higher than a stock that passes all filters strictly. Near-miss stocks receive the same hold zone protection as strict passes — they won't be force-sold just because one filter is marginally failing.</div>
+            <div class="badge-action info">Normal position — borderline qualifier, hold-protected</div>
           </div>
         </div>
       </div>
@@ -1048,7 +1053,11 @@
           </button>
           <div class="faq-body">
             <div class="faq-body-inner">
-              Directly in the Smallcase app. It has a clear, visual interface that shows your portfolio's overall returns, individual stock performance, and your XIRR since inception. You don't need to maintain any separate tracking sheet — Smallcase handles all of this natively.
+              In two places, each serving a different purpose.
+              <br><br>
+              <strong>Smallcase</strong> shows broker-level performance: your overall returns, individual stock performance, and XIRR since inception. This is your official record for tax and accounting purposes.
+              <br><br>
+              <strong>The Performance tab</strong> in this screener tracks how your portfolio is doing as an investment strategy — independently of how much capital you've added. It plots an indexed equity curve (base = 100 on your first day) alongside Nifty 50 and Nifty 500, so you can see whether the momentum strategy is generating alpha over the benchmark. It uses time-weighted return (TWR), which strips out the effect of capital injections — so adding money mid-way doesn't distort the performance line. It also shows your total invested cost basis, unrealised P&L, and alpha vs Nifty 50 at a glance.
             </div>
           </div>
         </div>
@@ -1061,6 +1070,8 @@
           <div class="faq-body">
             <div class="faq-body-inner">
               Yes, you can add money at any time. Smallcase gives you two options: a one-time lump sum addition, or an SIP (Systematic Investment Plan) where a fixed amount is invested automatically at a set frequency. Both are available directly in the Smallcase platform under your smallcase settings. New money is deployed proportionally across your current holdings.
+              <br><br>
+              After adding capital, re-export your portfolio CSV from Smallcase and re-import it into the screener's Portfolio tab. This updates your holdings and average cost so the screener's Performance tab can accurately record the new cost basis. Without this step, the next day's performance snapshot won't reflect the additional capital correctly.
             </div>
           </div>
         </div>
@@ -1101,18 +1112,47 @@
           </div>
         </div>
 
+        <div class="faq-item">
+          <button class="faq-trigger" onclick="toggleFaq(this)">
+            How does the Performance tab work?
+            <svg class="faq-chevron" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div class="faq-body">
+            <div class="faq-body-inner">
+              The Performance tab builds automatically after every daily screen run. It reads your current holdings from the Portfolio tab, prices them at the day's closing prices, and records a snapshot in the database — you don't need to do anything.
+              <br><br>
+              The chart plots three lines indexed to 100 on the first date: your portfolio, Nifty 50, and Nifty 500. Because everything starts at 100, you can directly compare trajectories regardless of the absolute value of your portfolio or the index.
+              <br><br>
+              The return calculation uses <strong>time-weighted return (TWR)</strong>. This means that when you add fresh capital, the performance line doesn't spike — the injection is automatically detected from your updated cost basis and stripped out of that day's return calculation. What you see is the strategy's performance, not the effect of how much you invested or when.
+              <br><br>
+              The stats cards below the chart show: Portfolio return, Nifty 50 return, Nifty 500 return, Alpha vs Nifty 50, Market value, Invested (cost basis), and Unrealised P&L. You can filter by period (1M, 3M, 6M, 1Y, All) and expand a data table to see the raw numbers per day.
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
-
-    <hr class="section-rule">
-
-
-    <!-- Glossary -->
     <section class="section" id="glossary">
       <h2>Glossary</h2>
       <p>Plain-language definitions for terms used in the screener.</p>
 
       <div class="glossary">
+        <div class="glossary-row">
+          <div class="glossary-term">Time-weighted return (TWR)</div>
+          <div class="glossary-def">A method of measuring investment performance that eliminates the distorting effect of cash flows. When you add capital mid-way, the portfolio value jumps — but that jump is not a return. TWR strips it out by computing each day's return as (value today − injection) ÷ value yesterday, then compounding daily. This gives a true picture of how the strategy itself is performing, independent of how much or when you invested.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Performance tab</div>
+          <div class="glossary-def">A chart in the screener that plots your portfolio's time-weighted return indexed to 100 on the first date, alongside Nifty 50 and Nifty 500 on the same scale. Populated automatically after each daily screen run — no manual input needed. Also shows total invested cost basis, unrealised P&L, and alpha vs Nifty 50.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Alpha</div>
+          <div class="glossary-def">Return generated above the benchmark. If your portfolio returned +12% and Nifty 50 returned +8% over the same period, your alpha is +4%. The Performance tab shows alpha vs Nifty 50 as a stat card.</div>
+        </div>
+        <div class="glossary-row">
+          <div class="glossary-term">Cost basis</div>
+          <div class="glossary-def">The total amount you have actually invested — sum of (shares × average cost) across all holdings. Distinct from market value, which fluctuates daily. The difference between market value and cost basis is your unrealised P&L.</div>
+        </div>
         <div class="glossary-row">
           <div class="glossary-term">SMA21 / SMA200</div>
           <div class="glossary-def">Simple Moving Averages over 21 days and 200 days. The screener's core momentum score is the ratio of SMA21 ÷ SMA200. A high ratio means the recent trend is well above the long-term trend — strong upward momentum.</div>
@@ -1127,7 +1167,7 @@
         </div>
         <div class="glossary-row">
           <div class="glossary-term">CMF</div>
-          <div class="glossary-def">Chaikin Money Flow. Measures net buying vs. selling pressure over 20 days based on how prices close within each day's range. A CMF above 0.05 is required to pass the screener's filters — it indicates net institutional buying.</div>
+          <div class="glossary-def">Chaikin Money Flow. Measures net buying vs. selling pressure over 20 days based on how prices close within each day's range. A CMF above −0.1 is required to pass the screener's filters — it indicates that selling pressure is not dominant. A positive CMF indicates net institutional buying.</div>
         </div>
         <div class="glossary-row">
           <div class="glossary-term">ADV</div>
@@ -1135,7 +1175,7 @@
         </div>
         <div class="glossary-row">
           <div class="glossary-term">Hold zone</div>
-          <div class="glossary-def">A buffer that protects existing positions from premature exits. A stock in your portfolio is only sold when it falls below rank 25 — not when it drops below rank 15. This prevents unnecessary churn from short-term rank fluctuations.</div>
+          <div class="glossary-def">A buffer that protects existing positions from premature exits. A stock in your portfolio is only sold when it falls below rank 25 among passing stocks (those that pass all filters plus near-misses) — not when it drops below rank 15. Near-miss stocks are included in the hold zone and receive the same protection as strict passes. This prevents unnecessary churn from short-term rank fluctuations.</div>
         </div>
         <div class="glossary-row">
           <div class="glossary-term">Near-high protection</div>
