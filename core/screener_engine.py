@@ -27,17 +27,33 @@ def find_screen_date(ind, anchors):
     most recent trading day — avoids picking a stale date just because some
     smaller/illiquid tickers lag in yfinance's batch response.
     """
-    available_anchors = [t for t in anchors if t in ind['close'].columns]
-    if available_anchors:
-        anchor_close = ind['close'][available_anchors[0]]
-        valid_dates = anchor_close.dropna().index
-        if len(valid_dates):
-            return valid_dates[-1]
+    close     = ind['close']
+    non_null  = close.notna().sum(axis=1)
+    threshold = len(close.columns) * 0.50
 
-    # Fallback: relaxed coverage threshold (50% instead of 80%)
-    non_null  = ind['close'].notna().sum(axis=1)
-    threshold = len(ind['close'].columns) * 0.50
-    return non_null[non_null >= threshold].index[-1]
+    # Latest date seen across ALL anchors — not just the first one. Yahoo's
+    # index series (^NSEI) often lags a day behind individual stocks; relying
+    # on it alone pinned the whole screen to the previous day's prices.
+    anchor_last = {}
+    for t in anchors:
+        if t in close.columns:
+            valid = close[t].dropna().index
+            if len(valid):
+                anchor_last[t] = valid[-1]
+
+    if anchor_last:
+        candidate = max(anchor_last.values())
+        # Accept only if the broad universe actually has prices on that date
+        if non_null.get(candidate, 0) >= threshold:
+            print('   [screen_date] anchors: '
+                  + ', '.join(f'{t}={d.date()}' for t, d in anchor_last.items())
+                  + f' -> using {candidate.date()} ({int(non_null[candidate])} tickers)')
+            return candidate
+
+    # Fallback: latest date where at least 50% of tickers have a close
+    fallback = non_null[non_null >= threshold].index[-1]
+    print(f'   [screen_date] anchor date rejected (low coverage) → fallback {fallback.date()}')
+    return fallback
 
 
 def run_screen(ind, config, surveillance_tickers=None):
