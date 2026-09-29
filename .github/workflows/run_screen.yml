@@ -4,14 +4,17 @@ on:
   repository_dispatch:
     types: [run_screen]
   schedule:
-    # Primary: 11:17 UTC = 16:47 IST — non-round minute reduces GitHub queue collision
-    - cron: '17 11 * * 1-5'
-    # Backup 1: 12:37 UTC = 18:07 IST
-    - cron: '37 12 * * 1-5'
-    # Backup 2: 13:47 UTC = 19:17 IST
-    - cron: '47 13 * * 1-5'
-    # The screener is idempotent (upserts by run_date) so running multiple times is safe.
-    # Keepalive workflow provides an additional safety net at 14:00 UTC.
+    # All times shifted to give Yahoo Finance 3+ hours after NSE close (15:30 IST)
+    # to confirm day's candles before we fetch. Running too soon returns stale prices.
+    #
+    # Primary: 12:47 UTC = 18:17 IST (2h47m after NSE close)
+    - cron: '47 12 * * 1-5'
+    # Backup 1: 13:37 UTC = 19:07 IST
+    - cron: '37 13 * * 1-5'
+    # Backup 2: 14:27 UTC = 19:57 IST
+    - cron: '27 14 * * 1-5'
+    # Screener is idempotent (upserts by run_date) so running multiple times is safe.
+    # Keepalive workflow provides an additional safety net at 15:00 UTC.
   workflow_dispatch:
 
 jobs:
