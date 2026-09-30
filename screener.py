@@ -11,6 +11,7 @@ from datetime import datetime
 from supabase import create_client
 
 from core.data_fetcher import fetch_ohlcv
+from core.nse_bhavcopy import patch_latest_with_bhavcopy
 from core.indicators import compute_indicators
 from core.screener_engine import run_screen
 
@@ -117,7 +118,7 @@ def clean(val):
 def to_records(df):
     return [{k: clean(v) for k, v in row.items()} for _, row in df.iterrows()]
 
-def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers, surveillance_hard_block=None, surveillance_warning=None):
+def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers, surveillance_hard_block=None, surveillance_warning=None, price_source=None):
     row = {
         'run_date'   : str(screen_date.date()),
         'universe'   : UNIVERSE_NAME,
@@ -136,6 +137,7 @@ def push(supabase, top15, all_passing, all_universe, hold_zone, rejections, scre
             'no_data_tickers': no_data_tickers,
             'surveillance_tickers': sorted(surveillance_hard_block or []),
             'surveillance_warning_tickers': sorted(surveillance_warning or []),
+            'price_source': price_source or {'status': 'unavailable'},
         },
         'run_status' : 'complete',
         'triggered_at': datetime.utcnow().isoformat(),
@@ -251,6 +253,8 @@ def main():
     tickers              = load_universe()
     raw, available       = fetch_ohlcv(tickers, lookback_days=LOOKBACK_DAYS,
                                         batch_size=50, recover_time_budget=900)
+    # Official NSE close for the latest day (fail-safe: no-op if unavailable)
+    raw, price_source    = patch_latest_with_bhavcopy(raw)
     screen_tickers       = [t for t in tickers if t in available]
     shares, _            = load_shares_outstanding()
 
@@ -271,8 +275,11 @@ def main():
     top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers = run_screen(ind, CONFIG, surveillance_hard_block)
 
     print('\n📤 Pushing to Supabase...')
+    if price_source.get('bhav_date'):
+        price_source['status'] = 'official' if str(screen_date.date()) == price_source['bhav_date'] else 'provisional'
+    print(f"   Price source: {price_source.get('status')} (screen date {screen_date.date()})")
     run_id = push(supabase, top15, all_passing, all_universe, hold_zone, rejections, screen_date, no_data_tickers,
-                  surveillance_hard_block, surveillance_warning)
+                  surveillance_hard_block, surveillance_warning, price_source)
 
     print(f'\n✅ Done in {(time.time()-t0)/60:.1f} min — run_id: {run_id}')
 
