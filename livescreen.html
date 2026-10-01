@@ -1776,7 +1776,7 @@ loadAll();
   window.switchTab = function(id, el) {
     origSwitch(id, el);
     if (id === 'performance') {
-      if (!perfLoaded) { perfLoaded = true; loadPerformance(); }
+      perfLoaded = true; loadPerformance();   // reload each visit — data changes after every run
     }
   };
 })();
