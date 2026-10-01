@@ -66,7 +66,18 @@ def main():
     print('='*50)
 
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    today    = str(date.today())
+    # Label the snapshot with the TRADING date of the prices (the latest screen's
+    # run_date), not the runner's calendar date — late or after-midnight runs
+    # would otherwise file one day's prices under the next day.
+    try:
+        latest = supabase.table('screen_runs').select('run_date') \
+            .order('run_date', desc=True).order('triggered_at', desc=True) \
+            .limit(1).execute().data
+        today = latest[0]['run_date'] if latest else str(date.today())
+    except Exception as e:
+        print(f'  ⚠ Could not read latest screen date ({e}) — using calendar date')
+        today = str(date.today())
+    print(f'  Snapshot date (trading date): {today}')
 
     # ── 1. Load latest prices from stock_snapshots (just refreshed by screener) ──
     snap_rows = supabase.table('stock_snapshots').select('ticker,price').execute().data or []
