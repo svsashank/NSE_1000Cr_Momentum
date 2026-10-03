@@ -757,10 +757,10 @@ function priceSourceBadge(f) {
   const pill = (bg, txt, tip) => ` &nbsp;·&nbsp; <span title="${tip}" style="background:${bg};color:#000;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700">${txt}</span>`;
   if (ps.status === 'official')
     return pill('var(--green)', '✓ Official NSE close',
-      `Latest prices from NSE bhavcopy (${ps.bhav_date}). ${ps.filled||0} blank Yahoo prices filled, ${ps.corrected||0} corrected, ${ps.confirmed||0} confirmed.`);
+      `Latest prices from NSE bhavcopy (${ps.bhav_date}). ${ps.filled||0} blank Yahoo prices filled, ${ps.corrected||0} corrected, ${ps.confirmed||0} confirmed.`) + caFlagCount(f);
   if (ps.status === 'provisional')
     return pill('var(--yellow)', '⚠ Provisional prices',
-      `NSE's official file for the screen date isn't published yet (latest available: ${ps.bhav_date}). Prices are from Yahoo and may be stale — a later run will pick up official closes.`);
+      `NSE's official file for the screen date isn't published yet (latest available: ${ps.bhav_date}). Prices are from Yahoo and may be stale — a later run will pick up official closes.`) + caFlagCount(f);
   return pill('var(--yellow)', '⚠ Yahoo only', 'NSE bhavcopy could not be fetched this run — prices are from Yahoo and may be stale for some stocks.');
 }
 function caFlagMap(f) {
@@ -768,14 +768,13 @@ function caFlagMap(f) {
   (f?.price_source?.ca_flags || []).forEach(c => { m[c.ticker.replace(/\.(NS|BO)$/i, '').toUpperCase()] = c; });
   return m;
 }
-function caFlagBanner(f) {
-  const flags = f?.price_source?.ca_flags || [];
-  if (!flags.length) return '';
-  const list = flags.map(c => `<strong>${c.ticker.replace(/\.NS$/i,'')}</strong> (${c.deviation_pct}% gap)`).join(', ');
-  return `<div class="alert" style="margin-bottom:12px;border-left:3px solid var(--yellow);font-size:12px">
-    ⚑ <strong>Possible corporate action</strong> — ${list}. NSE's previous close disagrees with Yahoo's history, usually a split or bonus Yahoo hasn't adjusted yet.
-    These stocks were left on Yahoo data and will self-correct within a few days. Treat their signals with caution until the flag clears.</div>`;
+function caFlagCount(f) {
+  const n = (f?.price_source?.ca_flags || []).length;
+  if (!n) return '';
+  const tips = (f?.price_source?.ca_flags || []).map(c => c.ticker.replace(/\.NS$/i,'') + ' (' + c.deviation_pct + '% gap)').join(', ');
+  return ` <span title="Possible corporate action — ${tips}. NSE prev close disagrees with Yahoo (likely split/bonus). Stocks use Yahoo data and self-correct within days." style="background:var(--yellow);color:#000;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;cursor:help">⚑ ${n}</span>`;
 }
+function caFlagBanner(f) { return ''; }
 
 function renderTop15(runDate, filters) {
   const n = filters?.portfolio_size || latestTop15.length || 15;
@@ -792,7 +791,6 @@ function renderTop15(runDate, filters) {
     Universe: ${filters?.universe || 'nse_full'} &nbsp;·&nbsp;
     Top ${n} of ${latestPassing.length} passing${priceSourceBadge(filters)}
   </div>
-  ${caFlagBanner(filters)}
   <div class="tbl-wrap"><table>
   <thead><tr>
     <th>#</th><th>Ticker</th><th>Price</th><th>Rank Score</th>
@@ -1338,7 +1336,7 @@ function renderDeltaPhase1() {
     </tr>`;
   };
 
-  let html = `${caFlagBanner(window._latestFilters)}
+  let html = `
   <div class="alert info" style="margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
     <span>
       <strong style="color:var(--green)">${buys.length} Buy</strong> &nbsp;·&nbsp;
@@ -1603,6 +1601,15 @@ function renderDeltaPhase2() {
       &nbsp;·&nbsp; Undeployed: <strong style="color:var(--yellow)">₹${fmtNum(finalResidual,0)}</strong>
     </span>
   </div>
+  ${(() => {
+    const deltaKeys = Object.keys(rebalState.actions).map(t => t.replace(/\.(NS|BO)$/i, '').toUpperCase());
+    const hits = (window._latestFilters?.price_source?.ca_flags || [])
+      .filter(f => deltaKeys.includes(f.ticker.replace(/\.(NS|BO)$/i, '').toUpperCase()));
+    if (!hits.length) return '';
+    const list = hits.map(f => `<strong>${f.ticker.replace(/\.NS$/i,'')}</strong> (${f.deviation_pct}% price gap)`).join(', ');
+    return `<div class="alert" style="margin:0 0 10px;border-left:3px solid var(--yellow);font-size:12px;padding:8px 12px">
+      ⚑ Possible corporate action in rebalance — ${list}. These stocks use Yahoo data and will self-correct within days. Review before acting.</div>`;
+  })()}
   <div class="tbl-wrap" style="max-height:calc(100vh - 240px)"><table>
   <thead><tr>
     <th>Action</th><th>Ticker</th><th>Price</th><th>Qty</th><th>Value</th><th>Note</th>
