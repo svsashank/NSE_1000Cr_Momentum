@@ -18,6 +18,7 @@ Design principle — fail safe:
 import io
 import csv
 import urllib.request
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -83,7 +84,15 @@ def fetch_latest_bhavcopy(max_days_back=7, timeout=30):
             text = urllib.request.urlopen(req, timeout=timeout).read().decode('utf-8', 'ignore')
             recs = parse_bhavcopy(text)
             if len(recs) > 500:         # sanity: a real file has thousands of rows
-                return pd.Timestamp(d), recs
+                # Trust the trade date INSIDE the file, never the URL. On holidays NSE
+                # serves the previous session's file under the holiday's name
+                # (e.g. 02-Oct-2026 returned 01-Oct-2026 data).
+                dates = Counter(r['date'] for r in recs.values() if r['date'])
+                file_date = pd.to_datetime(dates.most_common(1)[0][0], format='%d-%b-%Y')
+                if file_date.date() != d:
+                    print(f'   bhavcopy requested for {d} contains {file_date.date()} '
+                          f'(holiday/non-trading day) — using {file_date.date()}')
+                return file_date, recs
         except Exception:
             continue                    # 404 = not published / holiday → try earlier day
     return None, {}
