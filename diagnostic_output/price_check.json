@@ -1,0 +1,204 @@
+{
+  "bhavcopy": {
+    "29092026": {
+      "status": "OK",
+      "n_rows": 3522,
+      "DATE1_values": [
+        "29-Sep-2026"
+      ],
+      "sample": {
+        "AASTHA": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "39.30",
+          "CLOSE_PRICE": "37.53"
+        },
+        "BAJAJ-AUTO": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "11024.00",
+          "CLOSE_PRICE": "10811.00"
+        },
+        "DELTACORP": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "72.20",
+          "CLOSE_PRICE": "78.69"
+        },
+        "ELIN": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "87.29",
+          "CLOSE_PRICE": "86.65"
+        },
+        "ESSARSHPNG": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "15.63",
+          "CLOSE_PRICE": "16.95"
+        },
+        "RELIANCE": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "1197.60",
+          "CLOSE_PRICE": "1182.00"
+        }
+      }
+    },
+    "30092026": {
+      "status": "OK",
+      "n_rows": 3529,
+      "DATE1_values": [
+        "30-Sep-2026"
+      ],
+      "sample": {
+        "AASTHA": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "37.53",
+          "CLOSE_PRICE": "34.15"
+        },
+        "BAJAJ-AUTO": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "10811.00",
+          "CLOSE_PRICE": "10874.00"
+        },
+        "DELTACORP": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "78.69",
+          "CLOSE_PRICE": "80.51"
+        },
+        "ELIN": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "86.65",
+          "CLOSE_PRICE": "86.30"
+        },
+        "ESSARSHPNG": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "16.95",
+          "CLOSE_PRICE": "18.89"
+        },
+        "RELIANCE": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "1182.00",
+          "CLOSE_PRICE": "1187.00"
+        }
+      }
+    },
+    "01102026": {
+      "status": "OK",
+      "n_rows": 3534,
+      "DATE1_values": [
+        "01-Oct-2026"
+      ],
+      "sample": {
+        "AASTHA": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "34.15",
+          "CLOSE_PRICE": "32.45"
+        },
+        "BAJAJ-AUTO": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "10874.00",
+          "CLOSE_PRICE": "10045.00"
+        },
+        "DELTACORP": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "80.51",
+          "CLOSE_PRICE": "73.48"
+        },
+        "ELIN": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "86.30",
+          "CLOSE_PRICE": "79.73"
+        },
+        "ESSARSHPNG": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "18.89",
+          "CLOSE_PRICE": "17.18"
+        },
+        "RELIANCE": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "1187.00",
+          "CLOSE_PRICE": "1167.70"
+        }
+      }
+    },
+    "02102026": {
+      "status": "OK",
+      "n_rows": 3534,
+      "DATE1_values": [
+        "01-Oct-2026"
+      ],
+      "sample": {
+        "AASTHA": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "34.15",
+          "CLOSE_PRICE": "32.45"
+        },
+        "BAJAJ-AUTO": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "10874.00",
+          "CLOSE_PRICE": "10045.00"
+        },
+        "DELTACORP": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "80.51",
+          "CLOSE_PRICE": "73.48"
+        },
+        "ELIN": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "86.30",
+          "CLOSE_PRICE": "79.73"
+        },
+        "ESSARSHPNG": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "18.89",
+          "CLOSE_PRICE": "17.18"
+        },
+        "RELIANCE": {
+          "SERIES": "EQ",
+          "PREV_CLOSE": "1187.00",
+          "CLOSE_PRICE": "1167.70"
+        }
+      }
+    }
+  },
+  "yahoo": {
+    "AASTHA": {
+      "2026-09-25": 36.36,
+      "2026-09-28": 39.3,
+      "2026-09-29": 37.53,
+      "2026-09-30": 34.15,
+      "2026-10-01": 32.45
+    },
+    "BAJAJ-AUTO": {
+      "2026-09-25": 11281.0,
+      "2026-09-28": 11024.0,
+      "2026-09-29": 10811.0,
+      "2026-09-30": 10874.0,
+      "2026-10-01": 10045.0
+    },
+    "DELTACORP": {
+      "2026-09-25": 76.84,
+      "2026-09-28": 72.2,
+      "2026-09-29": 78.69,
+      "2026-09-30": 80.51,
+      "2026-10-01": 73.48
+    },
+    "ELIN": {
+      "2026-09-25": 88.57,
+      "2026-09-28": 87.29,
+      "2026-09-29": 86.65,
+      "2026-09-30": 86.3,
+      "2026-10-01": 79.73
+    },
+    "ESSARSHPNG": {
+      "2026-09-25": 16.12,
+      "2026-09-28": 15.63,
+      "2026-09-29": 16.95,
+      "2026-09-30": 18.89,
+      "2026-10-01": 17.18
+    },
+    "RELIANCE": {
+      "2026-09-25": 1226.0,
+      "2026-09-28": 1197.6,
+      "2026-09-29": 1182.0,
+      "2026-09-30": 1187.0,
+      "2026-10-01": 1167.7
+    }
+  }
+}
