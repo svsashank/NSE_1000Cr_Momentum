@@ -1,0 +1,18 @@
+name: Price Diagnostic
+on: { workflow_dispatch: }
+permissions: { contents: write }
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install yfinance pandas -q
+      - run: python diag_prices.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add diagnostic_output/price_check.json
+          git commit -m "diag: output" && git push
