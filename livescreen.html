@@ -1727,13 +1727,13 @@ async function importPortfolioCSV(input) {
   if (!confirm(msg)) return;
 
   try {
-    // Delete all existing, then bulk-insert
+    // Delete all existing rows for this owner first
     await sb(`portfolio?owner=eq.${PORTFOLIO_OWNER}`, { method: 'DELETE' });
-    // Insert in chunks of 50
+    // Upsert in chunks of 50 — safe even if a concurrent request races the DELETE
     for (let i = 0; i < holdings.length; i += 50) {
       await sb('portfolio', {
         method: 'POST',
-        prefer: 'return=minimal',
+        prefer: 'resolution=merge-duplicates,return=minimal',
         body: JSON.stringify(holdings.slice(i, i + 50))
       });
     }
