@@ -79,6 +79,25 @@ def main():
         today = str(date.today())
     print(f'  Snapshot date (trading date): {today}')
 
+    # ── Guard: only write snapshot when official prices are available ─────────
+    # If the bhavcopy date doesn't match the screen date, prices were fetched
+    # during market hours (intraday) and recording them would corrupt the
+    # performance history. Skip and let the evening scheduled run do it correctly.
+    try:
+        from core.nse_bhavcopy import fetch_latest_bhavcopy
+        bhav_date, _ = fetch_latest_bhavcopy()
+        if bhav_date is not None and str(bhav_date.date()) != today:
+            print(f'  ⚠ Bhavcopy date ({bhav_date.date()}) ≠ screen date ({today}) — '
+                  f'prices are intraday. Skipping snapshot to avoid corrupting performance history.')
+            print('  ℹ The evening scheduled run will write the official closing snapshot.')
+            return
+        elif bhav_date is None:
+            print('  ⚠ Bhavcopy unavailable — proceeding with Yahoo prices (may be intraday).')
+        else:
+            print(f'  ✅ Bhavcopy date matches screen date ({today}) — prices are official.')
+    except Exception as e:
+        print(f'  ⚠ Bhavcopy check failed ({e}) — proceeding anyway.')
+
     # ── 1. Load latest prices from stock_snapshots (just refreshed by screener) ──
     snap_rows = supabase.table('stock_snapshots').select('ticker,price').execute().data or []
     price_map = {}
