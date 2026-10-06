@@ -1,0 +1,64 @@
+{
+  "generated": "2026-10-06T13:51:31.391087Z",
+  "dry_run": true,
+  "written": false,
+  "failed_dates": [],
+  "rows": [
+    {
+      "date": "2026-09-25",
+      "status": "ok",
+      "old_nifty50": 23140.5,
+      "new_nifty50": 23140.5,
+      "old_nifty500": 253.62,
+      "new_nifty500": 22603.5
+    },
+    {
+      "date": "2026-09-28",
+      "status": "ok",
+      "old_nifty50": 23140.5,
+      "new_nifty50": 22780.25,
+      "old_nifty500": 253.62,
+      "new_nifty500": 22232.15
+    },
+    {
+      "date": "2026-09-29",
+      "status": "ok",
+      "old_nifty50": 22780.25,
+      "new_nifty50": 22716.2,
+      "old_nifty500": 249.28,
+      "new_nifty500": 22101.0
+    },
+    {
+      "date": "2026-09-30",
+      "status": "ok",
+      "old_nifty50": 22716.2,
+      "new_nifty50": 22620.45,
+      "old_nifty500": 249.28,
+      "new_nifty500": 22072.1
+    },
+    {
+      "date": "2026-10-01",
+      "status": "ok",
+      "old_nifty50": 22620.45,
+      "new_nifty50": 22421.95,
+      "old_nifty500": 247.71,
+      "new_nifty500": 21857.75
+    },
+    {
+      "date": "2026-10-05",
+      "status": "ok",
+      "old_nifty50": 22421.95,
+      "new_nifty50": 22555.75,
+      "old_nifty500": 247.6,
+      "new_nifty500": 21971.6
+    },
+    {
+      "date": "2026-10-06",
+      "status": "ok",
+      "old_nifty50": 22776.1,
+      "new_nifty50": 22776.1,
+      "old_nifty500": 247.59,
+      "new_nifty500": 22202.85
+    }
+  ]
+}
