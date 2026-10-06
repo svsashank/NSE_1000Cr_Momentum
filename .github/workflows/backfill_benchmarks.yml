@@ -1,0 +1,49 @@
+name: Backfill Benchmarks
+
+# One-off repair: rewrites nifty50_close / nifty500_close in portfolio_history
+# for every snapshot date from NSE's official index close files.
+# dry_run=true  -> report only (default); dry_run=false -> write to Supabase.
+# Report is committed to diagnostic_output/benchmark_backfill.json.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'true = report only, false = write to Supabase'
+        default: 'true'
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install supabase
+
+      - name: Run backfill
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          DRY_RUN: ${{ github.event.inputs.dry_run == 'false' && '0' || '1' }}
+        run: python backfill_benchmarks.py
+
+      - name: Commit report
+        if: always()
+        run: |
+          git config user.name "svsashank"
+          git config user.email "svsashank@users.noreply.github.com"
+          git add diagnostic_output/benchmark_backfill.json || true
+          git commit -m "chore: benchmark backfill report" || echo "nothing to commit"
+          git pull --rebase origin main || true
+          git push || true
