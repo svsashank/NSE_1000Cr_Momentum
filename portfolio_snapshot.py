@@ -22,11 +22,11 @@ SUPABASE_URL   = os.environ['SUPABASE_URL']
 SUPABASE_KEY   = os.environ['SUPABASE_KEY']
 
 NIFTY50_SYM    = '^NSEI'
-# Nifty 500: ^CNX500 is no longer available on Yahoo Finance.
-# NETF.NS (Nippon India Nifty 500 Index Fund) tracks Nifty 500 and is available via yfinance.
-# NIFTYBEES.NS (Nifty 50 ETF) is a fallback sanity check only.
-# We store the raw ETF price — the chart indexes it to 100 on first date so the unit doesn't matter.
-NIFTY500_SYMS  = ['NETF.NS', 'MOM100.NS', '^CNX500']
+# Benchmarks come from NSE's OFFICIAL index close file (core/nse_index.py).
+# Yahoo is only a fallback, and only accepted when the candle date matches the
+# snapshot date. Nifty 500 on Yahoo is ^CRSLDX. We never substitute a different
+# instrument (the old NETF/MOM100 ETF proxies went stale for days and could mix units).
+NIFTY500_YF_SYM = '^CRSLDX'
 
 
 def fetch_single_close(sym):
@@ -41,21 +41,41 @@ def fetch_single_close(sym):
     return None
 
 
-def fetch_benchmark_closes():
-    """Fetch last close for Nifty 50 and Nifty 500."""
-    n50 = fetch_single_close(NIFTY50_SYM)
+def fetch_yahoo_close_on(sym, trade_date):
+    """Close for `sym` on exactly `trade_date` (YYYY-MM-DD), else None."""
+    try:
+        hist = yf.Ticker(sym).history(period='10d')['Close'].dropna()
+        for ts, val in hist.items():
+            if str(ts.date()) == trade_date:
+                return float(val)
+    except Exception:
+        pass
+    return None
 
-    n500 = None
-    for sym in NIFTY500_SYMS:
-        val = fetch_single_close(sym)
-        if val is not None:
-            print(f'  Nifty 500 fetched via {sym}: {val}')
-            n500 = val
-            break
+
+def fetch_benchmark_closes(trade_date):
+    """Official Nifty 50 / Nifty 500 closes for trade_date. Either may be None."""
+    n50 = n500 = None
+    try:
+        from core.nse_index import fetch_index_close
+        d   = datetime.strptime(trade_date, '%Y-%m-%d').date()
+        res = fetch_index_close(d)
+        if res:
+            n50, n500 = res.get('nifty50'), res.get('nifty500')
+            print(f'  ✅ NSE official index close ({trade_date}): Nifty 50 {n50}  Nifty 500 {n500}')
+        else:
+            print(f'  ⚠ NSE index file unavailable for {trade_date} — trying Yahoo')
+    except Exception as e:
+        print(f'  ⚠ NSE index fetch failed ({e}) — trying Yahoo')
+
+    if n50 is None:
+        n50 = fetch_yahoo_close_on(NIFTY50_SYM, trade_date)
+        print(f'  Nifty 50 via Yahoo ({trade_date}): {n50}')
     if n500 is None:
-        print(f'  ⚠ Nifty 500: all symbols failed {NIFTY500_SYMS}')
-
-    print(f'  Nifty 50: {n50}  Nifty 500: {n500}')
+        n500 = fetch_yahoo_close_on(NIFTY500_YF_SYM, trade_date)
+        print(f'  Nifty 500 via Yahoo ({trade_date}): {n500}')
+    if n500 is None:
+        print('  ⚠ Nifty 500 unavailable — leaving any existing value untouched')
     return n50, n500
 
 
@@ -108,7 +128,12 @@ def main():
     print(f'  Loaded {len(price_map)} prices from stock_snapshots')
 
     # ── 2. Fetch benchmark closes ─────────────────────────────────────────────
-    nifty50_close, nifty500_close = fetch_benchmark_closes()
+    nifty50_close, nifty500_close = fetch_benchmark_closes(today)
+    # Only include benchmark columns we actually have: upsert then leaves any
+    # existing good value untouched instead of overwriting it with NULL.
+    bench = {}
+    if nifty50_close:  bench['nifty50_close']  = round(nifty50_close, 2)
+    if nifty500_close: bench['nifty500_close'] = round(nifty500_close, 2)
 
     # ── 3. Process each user ─────────────────────────────────────────────────
     owners        = ['sashank', 'sneha', 'abhilash']
@@ -128,8 +153,7 @@ def main():
                 'total_value'   : None,
                 'cost_basis'    : None,
                 'num_holdings'  : 0,
-                'nifty50_close' : round(nifty50_close, 2) if nifty50_close else None,
-                'nifty500_close': round(nifty500_close, 2) if nifty500_close else None,
+                **bench,
             })
             continue
 
@@ -177,8 +201,7 @@ def main():
             'total_value'   : round(total_value, 2),
             'cost_basis'    : round(cost_basis,  2),
             'num_holdings'  : num_holdings,
-            'nifty50_close' : round(nifty50_close,  2) if nifty50_close  else None,
-            'nifty500_close': round(nifty500_close, 2) if nifty500_close else None,
+            **bench,
         })
 
     # ── 4. Upsert to portfolio_history ────────────────────────────────────────
