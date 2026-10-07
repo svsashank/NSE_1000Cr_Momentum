@@ -1723,23 +1723,29 @@ async function importPortfolioCSV(input) {
 
   if (!holdings.length) { alert('No valid holdings found in the CSV.'); return; }
 
-  const msg = `Import ${holdings.length} holdings?\n\nThis will REPLACE your entire portfolio.\n\nTickers: ${holdings.map(h=>h.ticker).join(', ')}`;
+  const ownerLabel = PORTFOLIO_OWNER.charAt(0).toUpperCase() + PORTFOLIO_OWNER.slice(1);
+  const msg = `⚠️ IMPORTING INTO ${ownerLabel.toUpperCase()}'S PORTFOLIO\n\nThis will permanently REPLACE all of ${ownerLabel}'s ${holdings.length} holdings.\n\nTickers: ${holdings.map(h=>h.ticker).join(', ')}\n\nAre you sure this is ${ownerLabel}'s portfolio?`;
   if (!confirm(msg)) return;
 
   try {
     // Delete all existing rows for this owner first
     await sb(`portfolio?owner=eq.${PORTFOLIO_OWNER}`, { method: 'DELETE' });
-    // Upsert in chunks of 50 — safe even if a concurrent request races the DELETE
+    // Upsert in chunks of 50 — if any chunk fails, stop immediately
+    // (don't leave a partially-imported portfolio)
+    let imported = 0;
     for (let i = 0; i < holdings.length; i += 50) {
       await sb('portfolio', {
         method: 'POST',
         prefer: 'resolution=merge-duplicates,return=minimal',
         body: JSON.stringify(holdings.slice(i, i + 50))
       });
+      imported += holdings.slice(i, i + 50).length;
     }
     await loadPortfolio();
-    alert(`✅ Imported ${holdings.length} holdings successfully.`);
-  } catch(e) { alert(`Import failed: ${e.message}`); }
+    alert(`✅ Imported ${imported} holdings into ${ownerLabel}'s portfolio successfully.`);
+  } catch(e) {
+    alert(`Import failed: ${e.message}\n\nWarning: your portfolio data may be in an inconsistent state. Please re-import your CSV to restore it.`);
+  }
 }
 
 // ── Run History ───────────────────────────────────────────────────────────────
