@@ -1,0 +1,34 @@
+name: Backfill Portfolio Value
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner:
+        description: 'Owner (sashank / sneha / abhilash)'
+        required: true
+        default: 'sashank'
+      from_date:
+        description: 'First date to rebuild (YYYY-MM-DD) — on/after the day current holdings were uploaded'
+        required: true
+        default: '2026-10-10'
+      apply:
+        description: 'Write changes? (false = dry run, just prints old vs new)'
+        type: boolean
+        default: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install supabase pandas requests
+      - name: Rebuild total_value from official NSE closes
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python backfill_portfolio_value.py --owner "${{ inputs.owner }}" --from "${{ inputs.from_date }}" ${{ inputs.apply && '--apply' || '' }}

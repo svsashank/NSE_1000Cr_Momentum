@@ -103,9 +103,10 @@ def main():
     # If the bhavcopy date doesn't match the screen date, prices were fetched
     # during market hours (intraday) and recording them would corrupt the
     # performance history. Skip and let the evening scheduled run do it correctly.
+    bhav, bhav_ok = {}, False
     try:
         from core.nse_bhavcopy import fetch_latest_bhavcopy
-        bhav_date, _ = fetch_latest_bhavcopy()
+        bhav_date, bhav = fetch_latest_bhavcopy()
         if bhav_date is not None and str(bhav_date.date()) != today:
             print(f'  ⚠ Bhavcopy date ({bhav_date.date()}) ≠ screen date ({today}) — '
                   f'prices are intraday. Skipping snapshot to avoid corrupting performance history.')
@@ -114,18 +115,18 @@ def main():
         elif bhav_date is None:
             print('  ⚠ Bhavcopy unavailable — proceeding with Yahoo prices (may be intraday).')
         else:
+            bhav_ok = True
             print(f'  ✅ Bhavcopy date matches screen date ({today}) — prices are official.')
     except Exception as e:
         print(f'  ⚠ Bhavcopy check failed ({e}) — proceeding anyway.')
 
-    # ── 1. Load latest prices from stock_snapshots (just refreshed by screener) ──
-    snap_rows = supabase.table('stock_snapshots').select('ticker,price').execute().data or []
-    price_map = {}
-    for r in snap_rows:
-        key = r['ticker'].replace('.NS', '').upper()
-        if r['price']:
-            price_map[key] = float(r['price'])
-    print(f'  Loaded {len(price_map)} prices from stock_snapshots')
+    # ── 1. Price source: official NSE close for EVERY holding ────────────────
+    # NOTE: stock_snapshots must NOT be used for valuation. It only holds stocks that
+    # passed the screen in some run (rows are never deleted), so a held stock that has
+    # since dropped out of the passing set keeps a frozen, stale price there. The
+    # bhavcopy covers all NSE symbols (incl. ETFs like GOLDBEES) for the trade date.
+    price_map = {sym: float(rec['Close']) for sym, rec in bhav.items()} if bhav_ok else {}
+    print(f'  Loaded {len(price_map)} official closes from bhavcopy')
 
     # ── 2. Fetch benchmark closes ─────────────────────────────────────────────
     nifty50_close, nifty500_close = fetch_benchmark_closes(today)
@@ -179,9 +180,13 @@ def main():
                 price = price_map.get(key)
                 if price is None:
                     yf_sym = ticker if ticker.endswith('.NS') else f'{ticker}.NS'
-                    price  = fetch_single_close(yf_sym)
+                    price  = fetch_yahoo_close_on(yf_sym, today)
                     if price:
-                        print(f'    {owner} / {ticker}: fetched via yf fallback ₹{price:.2f}')
+                        print(f'    {owner} / {ticker}: Yahoo bar for {today} ₹{price:.2f}')
+                    else:
+                        price = fetch_single_close(yf_sym)
+                        if price:
+                            print(f'    {owner} / {ticker}: ⚠ STALE Yahoo last close ₹{price:.2f} (no {today} bar)')
                 if price is None:
                     price = avg_cost   # last resort: cost basis
                     missing.append(ticker)
