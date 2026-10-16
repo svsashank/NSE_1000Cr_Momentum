@@ -10,6 +10,12 @@ on:
     - cron: '0 15 * * 1-5'
   workflow_dispatch:
 
+# The safety-net step dispatches run_screen.yml with GITHUB_TOKEN, which needs
+# actions:write. Without this block the dispatch returns 403 and the net never fires.
+permissions:
+  actions: write
+  contents: read
+
 jobs:
   keepalive:
     runs-on: ubuntu-latest
